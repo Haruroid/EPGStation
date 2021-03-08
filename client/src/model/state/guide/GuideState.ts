@@ -3,10 +3,16 @@ import { inject, injectable } from 'inversify';
 import * as apid from '../../../../../api';
 import DateUtil from '../../../util/DateUtil';
 import IScheduleApiModel from '../../api/schedule/IScheduleApiModel';
+import IRecordedApiModel from '../../api/recorded/IRecordedApiModel';
+import IChannelsApiModel from '../../api/channels/IChannelsApiModel';
 import { ISettingStorageModel } from '../../storage/setting/ISettingStorageModel';
 import IGuideProgramDialogState, { ProgramDialogOpenOption } from './IGuideProgramDialogState';
 import IGuideReserveUtil, { ReserveStateItemIndex } from './IGuideReserveUtil';
 import IGuideState, { DisplayRange, FetchGuideOption, ProgramDomItem } from './IGuideState';
+import { Channel } from '@/model/channels/IChannelModel';
+import router from '@/router';
+import Util from '@/util/Util';
+import { Route } from 'vue-router';
 
 interface CreateProgramDomOption {
     top: number;
@@ -20,6 +26,8 @@ interface CreateProgramDomOption {
 @injectable()
 class GuideState implements IGuideState {
     private scheduleApiModel: IScheduleApiModel;
+    private recordedApiModel: IRecordedApiModel;
+    private channelsApiModel: IChannelsApiModel;
     private settingModel: ISettingStorageModel;
     private programDialogState: IGuideProgramDialogState;
     private reserveUtil: IGuideReserveUtil;
@@ -36,15 +44,20 @@ class GuideState implements IGuideState {
     private timeLength: number = 0;
     private schedules: apid.Schedule[] = [];
     private reserveIndex: ReserveStateItemIndex = {};
+    private channelList: apid.ScheduleChannleItem[] = [];
 
     constructor(
         @inject('IScheduleApiModel') scheduleApiModel: IScheduleApiModel,
+        @inject('IRecordedApiModel') recordedApiModel: IRecordedApiModel,
+        @inject('IChannelsApiModel') channelsApiModel: IChannelsApiModel,
         @inject('ISettingStorageModel') settingModel: ISettingStorageModel,
         @inject('IGuideProgramDialogState') programDialogState: IGuideProgramDialogState,
         @inject('IGuideReserveUtil') reserveUtil: IGuideReserveUtil,
         @inject('IGuideGenreSettingStorageModel') genreSetting: IGuideGenreSettingStorageModel,
     ) {
         this.scheduleApiModel = scheduleApiModel;
+        this.recordedApiModel = recordedApiModel;
+        this.channelsApiModel = channelsApiModel;
         this.settingModel = settingModel;
         this.programDialogState = programDialogState;
         this.reserveUtil = reserveUtil;
@@ -65,6 +78,7 @@ class GuideState implements IGuideState {
         this.timeLength = 0;
         this.schedules = [];
         this.reserveIndex = {};
+        this.channelList = [];
     }
 
     /**
@@ -136,6 +150,264 @@ class GuideState implements IGuideState {
             startAt,
             endAt,
         });
+    }
+
+    private async getChannels_from_api() {
+        const chs: apid.ChannelItem[] = await this.channelsApiModel.getChannels();
+        const dummy: apid.ScheduleChannleItem = {
+            id: 0,
+            serviceId: 0,
+            networkId: 0,
+            name: '',
+            hasLogoData: false,
+            channelType: 'GR',
+        };
+        this.channelList.push(dummy);
+        chs.forEach(r => {
+            const newItem: apid.ScheduleChannleItem = {
+                id: r.id,
+                serviceId: r.serviceId,
+                networkId: r.networkId,
+                name: r.name,
+                hasLogoData: r.hasLogoData,
+                channelType: r.channelType,
+            };
+            this.channelList.push(newItem);
+        });
+    }
+
+    private getChannelItem(cid: apid.ChannelId) {
+        for (let i = 1; i < this.channelList.length; i++) {
+            if (this.channelList[i].id == cid) {
+                return this.channelList[i];
+            }
+        }
+        return this.channelList[0];
+    }
+
+    private async getChannels_Recorded() {
+        const channels: apid.ScheduleChannleItem[] = [];
+        const option_channels: apid.RecordedChannelListItem[] = (await this.recordedApiModel.getSearchOptionList()).channels;
+        await this.getChannels_from_api();
+        for (let i = 0; i < option_channels.length; i++) {
+            const newCh: apid.ScheduleChannleItem = this.getChannelItem(option_channels[i].channelId);
+            if (newCh.id != 0) {
+                channels.push(newCh);
+            }
+        }
+        return channels;
+    }
+
+    public async fetchGuide_Recorded(option: FetchGuideOption): Promise<void> {
+        // チャンネル一覧を取得(options)
+        //forで回してjsonの形に
+        //endatをちゃんと見る
+
+        // 開始時刻設定
+        //デフォを1日前に
+        this.startTime = typeof option.time !== 'undefined' ? option.time : DateUtil.format(DateUtil.getJaDate(new Date(new Date().setDate(new Date().getDate() - 1))), 'YYMMddhh');
+        const startAt = this.getStartTime(this.startTime);
+        let endAt: number;
+
+        if (typeof option.channelId === 'undefined') {
+            // 放送局指定ではない
+
+            // こっちは正しい
+            endAt = startAt + option.length * 60 * 60 * 1000;
+
+            // 表示時刻長を記録
+            this.timeLength = option.length;
+
+            // 放送波設定
+            //とりあえず放送波選択は無し
+
+            // this.schedules = await this.scheduleApiModel.getSchedules(scheduleOption);
+            const channels: apid.ScheduleChannleItem[] = await this.getChannels_Recorded();
+            for (let i = 0; i < channels.length; i++) {
+                const recordedOption: apid.GetRecordedOption = {
+                    isHalfWidth: false,
+                    channelId: channels[i].id,
+                };
+                const program_list: apid.ScheduleProgramItem[] = [];
+                const programs = await this.recordedApiModel.gets(recordedOption);
+                programs.records.forEach(r => {
+                    const item: apid.ScheduleProgramItem = {
+                        id: r.id,
+                        channelId: r.channelId,
+                        startAt: r.startAt,
+                        endAt: r.endAt,
+                        isFree: true,
+                        name: r.name,
+                        description: r.description,
+                        extended: '',
+                        genre1: r.genre1,
+                        subGenre1: r.subGenre1,
+                        genre2: r.genre2,
+                        subGenre2: r.subGenre2,
+                        genre3: r.genre3,
+                        subGenre3: r.subGenre3,
+                        videoType: r.videoType,
+                        videoResolution: r.videoResolution,
+                        videoStreamContent: r.videoStreamContent,
+                        videoComponentType: r.videoComponentType,
+                        audioSamplingRate: r.audioSamplingRate,
+                        audioComponentType: r.audioComponentType,
+                    };
+                    program_list.push(item);
+                });
+                const schedule_item: apid.Schedule = {
+                    channel: channels[i],
+                    programs: program_list,
+                };
+                this.schedules.push(schedule_item);
+            }
+        } else {
+            // 放送局指定
+            this.timeLength = GuideState.SINGLE_STATION_LENGTH;
+            endAt = startAt + 60 * 60 * GuideState.SINGLE_STATION_LENGTH * 1000 * GuideState.SINGLE_STATION_GET_DAYS;
+
+            const scheduleOption: apid.ChannelScheduleOption = {
+                startAt: startAt,
+                days: GuideState.SINGLE_STATION_GET_DAYS,
+                isHalfWidth: option.isHalfWidth,
+                channelId: option.channelId,
+            };
+
+            this.schedules = await this.scheduleApiModel.getChannelSchedule(scheduleOption);
+        }
+
+        this.startAt = startAt;
+        this.endAt = endAt;
+
+        // 予約情報取得
+        this.reserveIndex = await this.reserveUtil.getReserveIndex({
+            startAt,
+            endAt,
+        });
+    }
+
+    /**
+     * 番組情報の要素を生成する
+     * @param isSingleStation: boolean 単局表示か
+     */
+    public createPreviousProgramDoms(isSingleStation: boolean): void {
+        if (this.displayRange === null) {
+            throw new Error('CreateProgramDomsError');
+        }
+
+        const isHidden = this.settingModel.getSavedValue().guideMode !== 'all';
+        const genreSettings = this.genreSetting.getSavedValue();
+
+        this.programDoms = [];
+        this.programDomIndex = {};
+        let baseStartAt = this.startAt;
+        let baseEndAt = isSingleStation === true ? baseStartAt + 60 * 60 * GuideState.SINGLE_STATION_LENGTH * 1000 : this.endAt;
+        for (let i = 0; i < this.schedules.length; i++) {
+            for (const program of this.schedules[i].programs) {
+                const programStartAt = baseStartAt > program.startAt ? baseStartAt : program.startAt;
+
+                // プログラム高さ位置
+                const top = this.getTop(baseStartAt, programStartAt);
+                // 番組高さ
+                const height = this.getDiffMin(programStartAt, baseEndAt < program.endAt ? baseEndAt : program.endAt);
+                if (height <= 0) {
+                    continue;
+                }
+                // element
+                const element = this.createPreviousProgramDom(
+                    {
+                        top,
+                        left: i,
+                        height: height,
+                        channel: this.schedules[i].channel,
+                        program: program,
+                        isHidden: isHidden,
+                    },
+                    genreSettings,
+                );
+
+                this.programDoms.push({
+                    element,
+                    top,
+                    left: i,
+                    height,
+                    isVisible: false,
+                    genreLv1: typeof program.genre1 !== 'undefined' ? program.genre1 : typeof program.genre2 !== 'undefined' ? program.genre2 : program.genre3,
+                });
+
+                // dom 索引作成
+                if (typeof this.programDomIndex[program.id] === 'undefined') {
+                    this.programDomIndex[program.id] = [];
+                }
+                this.programDomIndex[program.id].push(element);
+            }
+
+            if (isSingleStation === true) {
+                baseStartAt += 60 * 60 * GuideState.SINGLE_STATION_LENGTH * 1000;
+                baseEndAt = baseStartAt + 60 * 60 * GuideState.SINGLE_STATION_LENGTH * 1000;
+            }
+        }
+    }
+
+    /**
+     * 番組表 DOM 生成
+     * @param option: CreateProgramDomOption
+     * @param isHidden: boolean
+     * @return HTMLElement
+     */
+    private createPreviousProgramDom(option: CreateProgramDomOption, genreSettings: IGuideGenreSettingValue): HTMLElement {
+        // create child
+        const child: HTMLElement[] = [];
+        child.push(this.createTextElement('div', { class: 'name' }, option.program.name));
+        child.push(this.createTextElement('div', { class: 'time' }, DateUtil.format(DateUtil.getJaDate(new Date(option.program.startAt)), 'hh:mm')));
+        if (typeof option.program.description !== 'undefined') {
+            child.push(this.createTextElement('div', { class: 'description' }, option.program.description));
+        }
+
+        // class
+        let genreLv1: apid.ProgramGenreLv1 | null = null;
+        let classStr = 'item';
+        if (typeof option.program.genre1 !== 'undefined') {
+            genreLv1 = option.program.genre1;
+            classStr += ` ctg-${option.program.genre1.toString(10)}`;
+        } else if (typeof option.program.genre2 !== 'undefined') {
+            genreLv1 = option.program.genre2;
+            classStr += ` ctg-${option.program.genre2.toString(10)}`;
+        } else if (typeof option.program.genre3 !== 'undefined') {
+            genreLv1 = option.program.genre3;
+            classStr += ` ctg-${option.program.genre3.toString(10)}`;
+        } else {
+            classStr += ' ctg-empty';
+        }
+
+        if (genreLv1 !== null && typeof (genreSettings as any)[genreLv1] !== 'undefined' && (genreSettings as any)[genreLv1] === false) {
+            classStr += ' hide';
+        }
+
+        if (option.isHidden === true) {
+            classStr += ' hidden';
+        }
+
+        const element = this.createParentElement(
+            'div',
+            {
+                class: classStr,
+                style:
+                    `height: calc(${option.height} * (var(--timescale-height) / 60));` +
+                    `top: calc(${option.top} * (var(--timescale-height) / 60)); ` +
+                    `left: calc(${option.left} * (var(--channel-width)));`,
+                onclick: (e: Event) => {
+                    const dialogOption: ProgramDialogOpenOption = {
+                        channel: option.channel,
+                        program: option.program,
+                    };
+                    this.programDialogState.gotoRecorded(dialogOption);
+                },
+            },
+            child,
+        );
+
+        return element;
     }
 
     /**

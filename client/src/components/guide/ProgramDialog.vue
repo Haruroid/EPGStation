@@ -312,6 +312,19 @@ export default class ProgramDialog extends Vue {
         }
     }
 
+    @Watch('dialogState.isRecorded', { immediate: true })
+    public OnGotoRecordedPage(): void {
+        this.$nextTick(async () => {
+            let pid = this.dialogState.getProgramId();
+            if (pid != null) {
+                await Util.move(this.$router, {
+                    path: `/recorded/detail/${pid.toString(10)}`,
+                });
+            }
+            this.dialogState.endRecorded();
+        });
+    }
+
     /**
      * ページ移動時
      */
@@ -320,6 +333,10 @@ export default class ProgramDialog extends Vue {
         // ページ移動時にダイアログが開いていたら閉じる
         if (this.dialogState.isOpen === true) {
             this.dialogState.close();
+        }
+
+        if (this.dialogState.isRecorded === true) {
+            this.dialogState.endRecorded();
         }
     }
 }

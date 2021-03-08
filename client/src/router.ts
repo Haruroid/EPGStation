@@ -7,6 +7,7 @@ import Dashboard from './views/Dashboard.vue';
 import Encode from './views/Encode.vue';
 import Guide from './views/Guide.vue';
 import GuideSizeSetting from './views/GuideSizeSetting.vue';
+import Guide_Previous from './views/Guide_Previous.vue';
 import ManualReserve from './views/ManualReserve.vue';
 import OnAir from './views/OnAir.vue';
 import Recorded from './views/Recorded.vue';
@@ -49,6 +50,16 @@ export default new Router({
         {
             path: '/guide/setting',
             name: 'guide-setting',
+            component: GuideSizeSetting,
+        },
+        {
+            path: '/guide_previous',
+            name: 'guide_previous',
+            component: Guide_Previous,
+        },
+        {
+            path: '/guide_previous/setting',
+            name: 'guide-setting_previous',
             component: GuideSizeSetting,
         },
         {

@@ -36,7 +36,9 @@ export default interface IGuideState {
     clearDate(): void;
     setDisplayRange(baseSize: DisplayRange): void;
     fetchGuide(option: FetchGuideOption): Promise<void>;
+    fetchGuide_Recorded(option: FetchGuideOption): Promise<void>;
     createProgramDoms(isSingleStation: boolean): void;
+    createPreviousProgramDoms(isSingleStation: boolean): void;
     updateVisible(): void;
     updateGenre(): void;
     updateReserves(): void;

@@ -20,6 +20,10 @@ import ILoggerModel from '../../ILoggerModel';
 import IReserveOptionChecker from '../IReserveOptionChecker';
 import IReservationManageModel from './IReservationManageModel';
 import Tuner from './Tuner';
+import IEncodeManageModel from '../../service/encode/IEncodeManageModel';
+import IRecordedManageModel from '../recorded/IRecordedManageModel';
+import IRecordedDB, { FindAllOption } from '../../db/IRecordedDB';
+import IRecordedItemUtil from '../../api/IRecordedItemUtil';
 
 interface ReserveDiffData {
     reserve: Reserve;
@@ -44,6 +48,10 @@ class ReservationManageModel implements IReservationManageModel {
         CS: false,
         SKY: false,
     };
+    private encodeManage: IEncodeManageModel;
+    private recordedManage: IRecordedManageModel;
+    private recordedDB: IRecordedDB;
+    private recordedItemUtil: IRecordedItemUtil;
 
     constructor(
         @inject('ILoggerModel') logger: ILoggerModel,
@@ -55,6 +63,10 @@ class ReservationManageModel implements IReservationManageModel {
         @inject('IProgramDB') programDB: IProgramDB,
         @inject('IRuleDB') ruleDB: IRuleDB,
         @inject('IReserveEvent') reserveEvent: IReserveEvent,
+        @inject('IEncodeManageModel') encodeManage: IEncodeManageModel,
+        @inject('IRecordedManageModel') recordedManageModel: IRecordedManageModel,
+        @inject('IRecordedDB') recordedDB: IRecordedDB,
+        @inject('IRecordedItemUtil') recordedItemUtil: IRecordedItemUtil,
     ) {
         this.log = logger.getLogger();
         this.config = configuration.getConfig();
@@ -65,6 +77,10 @@ class ReservationManageModel implements IReservationManageModel {
         this.programDB = programDB;
         this.ruleDB = ruleDB;
         this.reserveEvent = reserveEvent;
+        this.encodeManage = encodeManage;
+        this.recordedManage = recordedManageModel;
+        this.recordedDB = recordedDB;
+        this.recordedItemUtil = recordedItemUtil;
     }
 
     /**
@@ -947,6 +963,50 @@ class ReservationManageModel implements IReservationManageModel {
         );
     }
 
+    private async deleteTask(): Promise<void> {
+        const exeId = await this.executeManagementModel.getExecution(
+            ReservationManageModel.RULE_UPDATE_RESERVE_PRIORITY,
+        );
+        const finalize = () => {
+            this.executeManagementModel.unLockExecution(exeId);
+        };
+
+        const opt: apid.GetRecordedOption = {
+            isHalfWidth: false,
+        };
+
+        (<FindAllOption>opt).isRecording = false;
+        const [records, total] = await this.recordedDB.findAll(opt, {
+            isNeedVideoFiles: true,
+            isNeedThumbnails: false,
+            isNeedsDropLog: false,
+            isNeedTags: false,
+        });
+
+        const encodeIndex = this.encodeManage.getRecordedIndex();
+        const recordeditems: apid.RecordedItem[] = [];
+        records.forEach(r => {
+            recordeditems.push(this.recordedItemUtil.convertRecordedToRecordedItem(r, opt.isHalfWidth, encodeIndex));
+        });
+        if (recordeditems.length != total) {
+            this.log.system.error('recorded: index mismatch');
+            finalize();
+            return;
+        }
+        const now = new Date().getTime();
+        const baseTime = now - 1000 * 60 * 60 * 24 * 8; //8日前から消す
+        this.log.system.info(' basetime:' + baseTime.toString());
+
+        recordeditems.forEach(r => {
+            this.log.system.debug('  id:' + r.id.toString() + '　T:' + r.startAt.toString());
+            if (r.startAt < baseTime) {
+                this.log.system.info(' deleting id:' + r.id.toString());
+                this.recordedManage.delete(r.id);
+            }
+        });
+        finalize();
+    }
+
     /**
      * 全ての予約情報の更新
      */
@@ -984,6 +1044,10 @@ class ReservationManageModel implements IReservationManageModel {
         }
 
         this.log.system.info('all reservation update finish');
+
+        this.log.system.info('delete task start');
+        await this.deleteTask();
+        this.log.system.info('delete task finish');
     }
 
     /**

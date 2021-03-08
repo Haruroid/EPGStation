@@ -84,6 +84,14 @@ export default class NavigationState implements INavigationState {
         }
 
         newItems.push({
+            icon: 'mdi-television-guide',
+            title: '録画済みの番組表',
+            herf: {
+                path: '/guide_previous',
+            },
+        });
+
+        newItems.push({
             icon: 'mdi-radiobox-marked',
             title: '録画中',
             herf: {

@@ -11,6 +11,7 @@ import IGuideProgramDialogState, { DisplayProgramData, ProgramDialogOpenOption, 
 @injectable()
 export default class GuideProgramDialogState implements IGuideProgramDialogState {
     public isOpen: boolean = false;
+    public isRecorded: boolean = false;
     public displayData: DisplayProgramData | null = null;
     public reserve: ProgramDialogReseveItem | null = null;
 
@@ -42,11 +43,26 @@ export default class GuideProgramDialogState implements IGuideProgramDialogState
         this.programId = option.program.id;
     }
 
+    public gotoRecorded(option: ProgramDialogOpenOption): void {
+        this.isRecorded = true;
+        this.program = option.program;
+        this.setProgramData(option);
+        this.reserve = typeof option.reserve === 'undefined' ? null : option.reserve;
+        this.programId = option.program.id;
+    }
+
     /**
      * ダイアログを閉じる
      */
     public close(): void {
         this.isOpen = false;
+        this.displayData = null;
+        this.reserve = null;
+        this.programId = null;
+    }
+
+    public endRecorded(): void {
+        this.isRecorded = false;
         this.displayData = null;
         this.reserve = null;
         this.programId = null;

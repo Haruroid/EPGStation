@@ -28,10 +28,13 @@ export interface DisplayProgramData {
 
 export default interface IGuideProgramDialogState {
     isOpen: boolean;
+    isRecorded: boolean;
     displayData: DisplayProgramData | null;
     reserve: ProgramDialogReseveItem | null;
     open(option: ProgramDialogOpenOption): void;
+    gotoRecorded(option: ProgramDialogOpenOption): void;
     close(): void;
+    endRecorded(): void;
     getProgramId(): apid.ProgramId | null;
     getProgram(): apid.ScheduleProgramItem | null;
     getEncodeList(): string[];
