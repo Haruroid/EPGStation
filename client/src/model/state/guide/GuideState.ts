@@ -224,37 +224,43 @@ class GuideState implements IGuideState {
             // this.schedules = await this.scheduleApiModel.getSchedules(scheduleOption);
             const channels: apid.ScheduleChannleItem[] = await this.getChannels_Recorded();
             for (let i = 0; i < channels.length; i++) {
-                const recordedOption: apid.GetRecordedOption = {
-                    isHalfWidth: false,
-                    channelId: channels[i].id,
-                };
                 const program_list: apid.ScheduleProgramItem[] = [];
-                const programs = await this.recordedApiModel.gets(recordedOption);
-                programs.records.forEach(r => {
-                    const item: apid.ScheduleProgramItem = {
-                        id: r.id,
-                        channelId: r.channelId,
-                        startAt: r.startAt,
-                        endAt: r.endAt,
-                        isFree: true,
-                        name: r.name,
-                        description: r.description,
-                        extended: '',
-                        genre1: r.genre1,
-                        subGenre1: r.subGenre1,
-                        genre2: r.genre2,
-                        subGenre2: r.subGenre2,
-                        genre3: r.genre3,
-                        subGenre3: r.subGenre3,
-                        videoType: r.videoType,
-                        videoResolution: r.videoResolution,
-                        videoStreamContent: r.videoStreamContent,
-                        videoComponentType: r.videoComponentType,
-                        audioSamplingRate: r.audioSamplingRate,
-                        audioComponentType: r.audioComponentType,
+                let index = 0;
+                let programs;
+                do {
+                    const recordedOption: apid.GetRecordedOption = {
+                        isHalfWidth: false,
+                        channelId: channels[i].id,
+                        offset: index,
                     };
-                    program_list.push(item);
-                });
+                    programs = await this.recordedApiModel.gets(recordedOption);
+                    programs.records.forEach(r => {
+                        const item: apid.ScheduleProgramItem = {
+                            id: r.id,
+                            channelId: r.channelId,
+                            startAt: r.startAt,
+                            endAt: r.endAt,
+                            isFree: true,
+                            name: r.name,
+                            description: r.description,
+                            extended: '',
+                            genre1: r.genre1,
+                            subGenre1: r.subGenre1,
+                            genre2: r.genre2,
+                            subGenre2: r.subGenre2,
+                            genre3: r.genre3,
+                            subGenre3: r.subGenre3,
+                            videoType: r.videoType,
+                            videoResolution: r.videoResolution,
+                            videoStreamContent: r.videoStreamContent,
+                            videoComponentType: r.videoComponentType,
+                            audioSamplingRate: r.audioSamplingRate,
+                            audioComponentType: r.audioComponentType,
+                        };
+                        program_list.push(item);
+                        index += 1;
+                    });
+                } while (programs.total > index);
                 const schedule_item: apid.Schedule = {
                     channel: channels[i],
                     programs: program_list,
