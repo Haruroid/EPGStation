@@ -74,7 +74,7 @@ export default class GuidePreviousDaySelectDialog extends Vue {
 
         const currentTime = typeof this.$route.query.time === 'string' ? this.$route.query.time : DateUtil.format(now, 'YYMMddhh');
 
-        baseTime -= 1000 * 60 * 60 * 24; //最初から1日前
+        baseTime -= 1000 * 60 * 60 * 23; //最初から1日前
         for (let i = 0; i < 8; i++) {
             const date = new Date(baseTime);
             const value = DateUtil.format(date, 'YYMMdd' + hourStr);
