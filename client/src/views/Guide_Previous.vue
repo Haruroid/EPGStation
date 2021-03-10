@@ -23,9 +23,7 @@
                         </div>
                         <GuideScroller class="program-wrap overflow-auto" v-on:scroll="onProgramScroll" ref="programs">
                             <template v-slot:content>
-                                <div class="programs" v-bind:class="{ 'is-dark': $vuetify.theme.dark === true }" v-bind:style="programsStyle" ref="content">
-                                    <TimeLine></TimeLine>
-                                </div>
+                                <div class="programs" v-bind:class="{ 'is-dark': $vuetify.theme.dark === true }" v-bind:style="programsStyle" ref="content"></div>
                             </template>
                         </GuideScroller>
                     </div>
@@ -46,7 +44,6 @@ import GuideScroller from '@/components/guide/GuideScroller.vue';
 import GuideTimeSelector from '@/components/guide/GuideTimeSelector.vue';
 import Loading from '@/components/guide/Loading.vue';
 import ProgramDialog from '@/components/guide/ProgramDialog.vue';
-import TimeLine from '@/components/guide/TimeLine.vue';
 import TimeScale from '@/components/guide/TimeScale.vue';
 import OnAirSelectStream from '@/components/onair/OnAirSelectStream.vue';
 import TitleBar from '@/components/titleBar/TitleBar.vue';
@@ -74,7 +71,6 @@ Component.registerHooks(['beforeRouteUpdate', 'beforeRouteLeave']);
         Channel,
         TimeScale,
         GuideScroller,
-        TimeLine,
         ProgramDialog,
         OnAirSelectStream,
         GuidePreviousDaySelectDialog,
@@ -286,9 +282,6 @@ export default class Guide_Previous extends Vue {
                         }
                     }
 
-                    // 時刻線要素を退避
-                    const timeline = (this.$refs.content as HTMLElement).getElementsByClassName('time-line')[0];
-
                     // 追加する前に前回の子要素を削除
                     while ((this.$refs.content as HTMLElement).firstChild) {
                         const firstChild = (this.$refs.content as HTMLElement).firstChild;
@@ -296,9 +289,6 @@ export default class Guide_Previous extends Vue {
                             (this.$refs.content as HTMLElement).removeChild(firstChild);
                         }
                     }
-
-                    // 時刻線要素を元に戻す
-                    (this.$refs.content as HTMLElement).appendChild(timeline);
 
                     await Util.sleep(100);
                     const programDoms = this.guideState.getProgramDoms();

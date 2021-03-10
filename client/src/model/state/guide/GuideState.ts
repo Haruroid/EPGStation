@@ -226,7 +226,7 @@ class GuideState implements IGuideState {
             for (let i = 0; i < channels.length; i++) {
                 const program_list: apid.ScheduleProgramItem[] = [];
                 let index = 0;
-                let programs;
+                let programs: apid.Records;
                 do {
                     const recordedOption: apid.GetRecordedOption = {
                         isHalfWidth: false,
