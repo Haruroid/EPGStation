@@ -1,5 +1,6 @@
 import { ChildProcess } from 'child_process';
 import * as fs from 'fs';
+import * as path from 'path';
 
 namespace ProcessUtil {
     /**
@@ -28,7 +29,7 @@ namespace ProcessUtil {
                     child.kill('SIGINT');
                     resolve();
                 }, wait);
-            } catch (err) {
+            } catch (err: any) {
                 reject(err);
             }
         });
@@ -38,6 +39,8 @@ namespace ProcessUtil {
         bin: string;
         args: string[];
     }
+
+    export const ROOT_PATH = path.join(__dirname, '..', '..').replace(new RegExp(`\\${path.sep}$`), '');
 
     /**
      * 渡された cmd 文字列を bin と args に分離する
@@ -57,14 +60,19 @@ namespace ProcessUtil {
         // bin の存在確認
         try {
             fs.statSync(bin);
-        } catch (e) {
+        } catch (e: any) {
             throw new Error('CmdBinIsNotFound');
         }
 
-        // 引数内の %SPACE% を半角スペースに置換
-        args = args.map(arg => {
-            return arg.replace(/%SPACE%/g, ' ');
-        });
+        args = args
+            .map(arg => {
+                // 引数内の %ROOT% を置換
+                return arg.replace(/%ROOT%/g, ROOT_PATH);
+            })
+            .map(arg => {
+                // 引数内の %SPACE% を半角スペースに置換
+                return arg.replace(/%SPACE%/g, ' ');
+            });
 
         return {
             bin: bin,
@@ -72,6 +80,15 @@ namespace ProcessUtil {
                 return arg.length > 0;
             }),
         };
+    };
+
+    /**
+     * プロセスが終了しているか
+     * @param child ChildProcess
+     * @return boolean 終了していれば true を返す
+     */
+    export const isExited = (child: ChildProcess): boolean => {
+        return child.exitCode !== null;
     };
 }
 

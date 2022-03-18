@@ -154,6 +154,20 @@ components:
                 win:
                     type: string
 
+        M2TSStreamParam:
+            description: M2TS形式ストリーミングパラメータ
+            type: object
+            required:
+                - name
+                - isUnconverted
+            properties:
+                name:
+                    description: 表示名
+                    type: string
+                isUnconverted:
+                    description: 無変換か
+                    type: boolean
+
         Config:
             description: コンフィグ
             type: object
@@ -230,6 +244,11 @@ components:
                             properties:
                                 m2ts:
                                     description: ライブ M2TS ストリーミング設定
+                                    type: array
+                                    items:
+                                        $ref: '#/components/schemas/M2TSStreamParam'
+                                m2tsll:
+                                    description: ライブ M2TS Low Latency (mpegts.js 用) ストリーミング設定
                                     type: array
                                     items:
                                         type: string
@@ -392,6 +411,9 @@ components:
                 extended:
                     description: 番組拡張
                     type: string
+                rawExtended:
+                    description: 番組拡張 (Mirakurun の extended)
+                    type: object
                 genre1:
                     $ref: '#/components/schemas/ProgramGenreLv1'
                 subGenre1:
@@ -765,10 +787,14 @@ components:
                     type: object
                     description: 時刻指定オプション
                     required:
+                        - name
                         - channelId
                         - startAt
                         - endAt
                     properties:
+                        name:
+                            description: 番組名
+                            type: string
                         channelId:
                             $ref: '#/components/schemas/ChannelId'
                         startAt:
@@ -857,8 +883,10 @@ components:
                     type: string
                 description:
                     type: string
-                extended?:
+                extended:
                     type: string
+                rawExtended:
+                    type: object
                 genre1:
                     $ref: '#/components/schemas/ProgramGenreLv1'
                 subGenre1:
@@ -1000,6 +1028,9 @@ components:
                 extended:
                     description: 番組拡張
                     type: string
+                rawExtended:
+                    description: 番組拡張 (Mirakurun の extended)
+                    type: object
                 genre1:
                     $ref: '#/components/schemas/ProgramGenreLv1'
                 subGenre1:
@@ -1237,7 +1268,7 @@ components:
                 cnt:
                     description: 録画数
                     type: integer
-                channelId:
+                genre:
                     $ref: '#/components/schemas/ProgramGenreLv1'
 
         RecordedSearchOptions:
@@ -1248,9 +1279,13 @@ components:
                 - genres
             properties:
                 channels:
-                    $ref: '#/components/schemas/RecordedChannelListItem'
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/RecordedChannelListItem'
                 genres:
-                    $ref: '#/components/schemas/RecordedGenreListItem'
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/RecordedGenreListItem'
 
         SendVideoLinkToKodiOption:
             description: kodiへビデオリンクを送信するときのオプション
@@ -1570,6 +1605,22 @@ components:
             in: query
             name: isHalfWidth
             required: true
+            schema:
+                type: boolean
+
+        NeedsRawExtended:
+            description: rawExtended が必要か
+            in: query
+            name: needsRawExtended
+            required: false
+            schema:
+                type: boolean
+
+        IsFreeProgram:
+            description: '無料放送のみ取得するか (true: 無料放送, false: 有料放送, 無指定: 全て)'
+            in: query
+            name: isFree
+            required: false
             schema:
                 type: boolean
 

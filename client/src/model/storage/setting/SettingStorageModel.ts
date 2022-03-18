@@ -17,9 +17,12 @@ export default class SettingStorageModel extends AbstractStorageBaseModel<ISetti
             isForceDarkTheme: false,
             isHalfWidthDisplayed: true,
             isOnAirTabListView: true,
+            isPreferredPlayingLiveM2TSOnWeb: true,
             onAirM2TSViewURLScheme: null,
             guideMode: UaUtil.isiOS() === true ? 'all' : 'sequential',
             guideLength: 24,
+            isForceDisableDarkThemeForGuide: false,
+            isShowOnlyFreePrograms: false,
             isEnableDisplayForEachBroadcastWave: false,
             isIncludeChannelIdWhenSearching: true,
             isIncludeGenreWhenSearching: true,
@@ -29,6 +32,7 @@ export default class SettingStorageModel extends AbstractStorageBaseModel<ISetti
             isPreferredPlayingOnWeb: UaUtil.isAndroid() !== true && UaUtil.isiOS() !== true,
             isShowTableMode: false,
             isShowDropInfoInsteadOfDescription: false,
+            deleteRecordedDefaultValue: false,
             shouldUseRecordedViewURLScheme: true,
             recordedViewURLScheme: null,
             shouldUseRecordedDownloadURLScheme: true,
@@ -40,7 +44,7 @@ export default class SettingStorageModel extends AbstractStorageBaseModel<ISetti
             isEnableEncodingSettingWhenCreateRule: false,
             isCheckDeleteOriginalAfterEncode: false,
             rulesLength: 24,
-            b24RenderType: 'default',
+            isForceEnableSubtitleStroke: true,
         };
     }
 

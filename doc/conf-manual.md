@@ -13,6 +13,7 @@
     -   [利用する FFmpeg を明示的に指定したい](#ffmpeg)
     -   [利用する FFprobe を明示的に指定したい](#ffprobe)
 -   [詳細設定](#詳細設定)
+    -   [番組情報の囲み文字の設定を変更したい](#needtoreplaceenclosingcharacters)
     -   [録画時の Mirakurun の優先度を変更したい](#recpriority)
     -   [録画競合時の Mirakurun の優先度を変更したい](#conflictpriority)
     -   [時刻指定予約時の開始マージンを変更したい](#timespecifiedstartmargin)
@@ -30,6 +31,7 @@
     -   [ドロップログの保存先を変更したい](#dropLog)
     -   [アクセス URL の設定をルートではなくサブディレクトリ下に変更したい](#subdirectory)
     -   [Swagger UI で使用するサーバリストを変更したい](#apiservers)
+    -   [CORS ヘッダーをすべて許可したい](#isallowallcors)
 -   [ファイル保存先](#ファイル保存先)
     -   [録画ファイルの保存先を変更したい](#recorded)
     -   [一時録画先を設定したい](#recordedtmp)
@@ -50,6 +52,7 @@
     -   [録画開始時に外部コマンドを実行したい](#recordingstartcommand)
     -   [録画終了時に外部コマンドを実行したい](#recordingfinishcommand)
     -   [録画失敗時に外部コマンドを実行したい](#recordingfailedcommand)
+    -   [エンコード終了時にコマンドを実行したい](#encodingfinishcommand)
     -   [エンコードやストリーミングで使用するプロセス数の上限を変更したい](#encodeprocessnum)
     -   [同時にエンコードするプロセス数の上限を更新したい](#concurrentencodenum)
     -   [録画ファイルを自動でエンコードしたい](#encode)
@@ -172,7 +175,7 @@ mysql:
     port: 3306
     user: username
     password: password
-    database": databaseName
+    database: databaseName
 ```
 
 ### sqlite
@@ -218,6 +221,18 @@ ffprobe: '/usr/bin/ffprobe'
 ---
 
 ## 詳細設定
+
+### needToReplaceEnclosingCharacters
+
+#### 番組情報の囲み文字を [] で括った文字に置換するか
+
+| 種類    | デフォルト値 | 必須 |
+| ------- | ------------ | ---- |
+| boolean | true         | no   |
+
+```yaml
+needToReplaceEnclosingCharacters: true
+```
 
 ### recPriority
 
@@ -464,6 +479,14 @@ apiServers:
 ```
 
 [WebAPI Document](./webapi.md)
+
+### isAllowAllCORS
+
+#### CORS ヘッダーをすべて許可する (いずれ真面目に実装した際に削除する予定)
+
+| 種類    | デフォルト値 | 必須 |
+| ------- | ------------ | ---- |
+| boolean | false        | no   |
 
 ---
 
@@ -751,11 +774,44 @@ recordingPrepRecFailedCommand: '/usr/bin/logger prepfailed'
 | HALF_WIDTH_EXTENDED    | string \| null | 番組詳細(半角)                |
 | RECPATH                | string         | 録画ファイルのフルパス        |
 | LOGPATH                | string\| null  | ログファイルのフルパス        |
+| ERROR_CNT              | number \| null | エラーカウント                |
+| DROP_CNT               | number \| null | ドロップカウント              |
+| SCRAMBLING_CNT         | number \| null | スクランブルカウント          |
 
 ```yaml
 recordingStartCommand: '/bin/node /home/hoge/fuga.js start'
 recordingFinishCommand: '/bin/bash /home/hoge/foo.sh end'
 recordingFailedCommand: '/usr/bin/logger recfailed'
+```
+
+### encodingFinishCommand
+
+-   エンコード終了時に実行するコマンド
+
+| 種類   | デフォルト値 | 必須 |
+| ------ | ------------ | ---- |
+| string | -            | no   |
+
+-   実行時に渡される環境変数は以下の通り
+
+| 変数名                 | 種類           | 説明                                   |
+| ---------------------- | -------------- | -------------------------------------- |
+| RECORDEDID             | number         | recorded id                            |
+| VIDEOFILEID            | number \| null | video file id                          |
+| OUTPUTPATH             | string \| null | エンコードしたビデオファイルのフルパス |
+| MODE                   | string         | エンコードモード名                     |
+| CHANNELID              | number         | channel id                             |
+| CHANNELNAME            | string \| null | 放送局名                               |
+| HALF_WIDTH_CHANNELNAME | string \| null | 放送局名(半角)                         |
+| NAME                   | string         | 番組名                                 |
+| HALF_WIDTH_NAME        | string         | 番組名(半角)                           |
+| DESCRIPTION            | string \| null | 番組概要                               |
+| HALF_WIDTH_DESCRIPTION | string \| null | 番組概要(半角)                         |
+| EXTENDED               | string \| null | 番組詳細                               |
+| HALF_WIDTH_EXTENDED    | string \| null | 番組詳細(半角)                         |
+
+```yaml
+encodingFinishCommand: '/bin/node /home/hoge/fuga.js finish'
 ```
 
 ### encodeProcessNum
@@ -793,7 +849,7 @@ concurrentEncodeNum: 1
 | suffix         | string | no   | 出力ファイルに付加される拡張子                               |
 | rate           | number | no   | 録画時間 \* rate 後にタイムアウトする ( デフォルト値は 4.0 ) |
 
--   `suffix` を空欄にした場合、非エンコードコマンドとして実行される
+-   `suffix` を定義しなければ、非エンコードコマンドとして実行される
 -   `cmd` 内で置換される変数は以下の通り
 
 | 変数名   | 説明                    |
@@ -813,6 +869,7 @@ concurrentEncodeNum: 1
 | FFMPEG                 | string         | ffmpeg パス                                                                   |
 | FFPROBE                | string         | ffprobe パス                                                                  |
 | DIR                    | string         | 予約時に設定した directory 文字列                                             |
+| SUBDIR                 | string \| null | サブディレクトリ文字列                                                        |
 | NAME                   | string         | 番組名                                                                        |
 | HALF_WIDTH_NAME        | string         | 番組名(半角)                                                                  |
 | DESCRIPTION            | string \| null | 番組概要                                                                      |
@@ -939,12 +996,13 @@ urlscheme:
 
 -   ライブストリーミングプロパティは以下の通り
 
-| ライブストリーミングプロパティ名 | 種類               | 必須 | 説明              |
-| -------------------------------- | ------------------ | ---- | ----------------- |
-| m2ts                             | コマンドプロパティ | no   | m2ts コマンド設定 |
-| webm                             | コマンドプロパティ | no   | webm コマンド設定 |
-| mp4                              | コマンドプロパティ | no   | mp4 コマンド設定  |
-| hls                              | コマンドプロパティ | no   | hls コマンド設定  |
+| ライブストリーミングプロパティ名 | 種類               | 必須 | 説明                              |
+| -------------------------------- | ------------------ | ---- | --------------------------------- |
+| m2ts                             | コマンドプロパティ | no   | m2ts コマンド設定                 |
+| m2tsll                           | コマンドプロパティ | no   | m2tsll コマンド設定 (mpegts.js)用 |
+| webm                             | コマンドプロパティ | no   | webm コマンド設定                 |
+| mp4                              | コマンドプロパティ | no   | mp4 コマンド設定                  |
+| hls                              | コマンドプロパティ | no   | hls コマンド設定                  |
 
 -   録画ストリーミングプロパティは以下の通り
 
@@ -956,11 +1014,10 @@ urlscheme:
 
 -   コマンドプロパティは以下の通り
 
-| 録画ストリーミングプロパティ名 | 種類    | 必須 | 説明                                                                             |
-| ------------------------------ | ------- | ---- | -------------------------------------------------------------------------------- |
-| name                           | string  | yes  | Web インターフェース上で表示される名前                                           |
-| cmd                            | string  | no   | 変換コマンド                                                                     |
-| useSubtitleUnrecognizerCmd     | boolean | no   | arib-subtitle-unrecognizer を使用するか (HLS 配信かつソースが TS の場合のみ有効) |
+| 録画ストリーミングプロパティ名 | 種類   | 必須 | デフォルト値 | 説明                                   |
+| ------------------------------ | ------ | ---- | ------------ | -------------------------------------- |
+| name                           | string | yes  | -            | Web インターフェース上で表示される名前 |
+| cmd                            | string | no   | -            | 変換コマンド                           |
 
 -   `cmd` が指定されない場合は無変換配信
 -   `cmd` で置換される変数は以下の通り
@@ -1010,6 +1067,17 @@ stream:
                       +loop-global_header %OUTPUT%'
 ```
 
+特定の配信方式を無効化したい場合は以下の例のように空配列を定義すること
+
+例): ライブ視聴の m2ts 配信方式を無効化する場合
+
+```yaml
+stream:
+    live:
+        ts:
+            m2ts: []
+```
+
 ### kodiHosts
 
 #### kodi への配信時に使用するオプション
@@ -1025,7 +1093,7 @@ stream:
 | name           | string | yes  | Web インターフェイス上で表示される名前 |
 | host           | string | yes  | kodi が動作しているホストの URL        |
 | user           | string | no   | kodi のユーザー名                      |
-| pass           | string | no   | kodi のパスワード                      |
+| password       | string | no   | kodi のパスワード                      |
 
 ```yaml
 kodiHosts:

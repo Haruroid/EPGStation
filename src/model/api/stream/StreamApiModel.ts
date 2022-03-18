@@ -17,12 +17,10 @@ import IStreamApiModel, { StreamResponse } from './IStreamApiModel';
 
 interface StreamConfig {
     cmd?: string;
-    useSubtitleUnrecognizerCmd: boolean;
 }
 
 interface RecordedStreamConfig {
     cmd: string;
-    useSubtitleUnrecognizerCmd: boolean;
 }
 
 @injectable()
@@ -81,7 +79,33 @@ export default class StreamApiModel implements IStreamApiModel {
                 cmd: conf.cmd,
             },
             option.mode,
-            conf.useSubtitleUnrecognizerCmd,
+        );
+
+        // manager に登録
+        const streamId = await this.streamManageModel.start(stream);
+
+        return {
+            streamId: streamId,
+            stream: stream.getStream(),
+        };
+    }
+
+    /**
+     * m2ts Low Latency (mpegts.js 用) 形式の live streaming を開始する
+     * @param option: apid.LiveStreamOption
+     * @return Promise<StreamResponse>
+     */
+    public async startLiveM2TsLLStream(option: apid.LiveStreamOption): Promise<StreamResponse> {
+        const conf = this.getTsLiveConfig('m2tsll', option.mode);
+
+        // stream 生成
+        const stream = await this.liveStreamProvider();
+        stream.setOption(
+            {
+                channelId: option.channelId,
+                cmd: conf.cmd,
+            },
+            option.mode,
         );
 
         // manager に登録
@@ -109,7 +133,6 @@ export default class StreamApiModel implements IStreamApiModel {
                 cmd: conf.cmd,
             },
             option.mode,
-            conf.useSubtitleUnrecognizerCmd,
         );
 
         // manager に登録
@@ -137,7 +160,6 @@ export default class StreamApiModel implements IStreamApiModel {
                 cmd: conf.cmd,
             },
             option.mode,
-            conf.useSubtitleUnrecognizerCmd,
         );
 
         // manager に登録
@@ -165,7 +187,6 @@ export default class StreamApiModel implements IStreamApiModel {
                 cmd: conf.cmd,
             },
             option.mode,
-            conf.useSubtitleUnrecognizerCmd,
         );
 
         // manager に登録
@@ -174,11 +195,11 @@ export default class StreamApiModel implements IStreamApiModel {
 
     /**
      * config から指定した live stream コマンドを取り出す
-     * @param type: 'm2ts' | 'webm' | 'mp4' | 'hls'
+     * @param type: 'm2ts' | 'm2tsll' | 'webm' | 'mp4' | 'hls'
      * @param mode: number config stream index 番号
      * @return Promise<StreamConfig>
      */
-    private getTsLiveConfig(type: 'm2ts' | 'webm' | 'mp4' | 'hls', mode: number): StreamConfig {
+    private getTsLiveConfig(type: 'm2ts' | 'm2tsll' | 'webm' | 'mp4' | 'hls', mode: number): StreamConfig {
         const config = this.configure.getConfig();
 
         if (
@@ -193,7 +214,6 @@ export default class StreamApiModel implements IStreamApiModel {
 
         return {
             cmd: (config.stream.live.ts[type] as any)[mode].cmd,
-            useSubtitleUnrecognizerCmd: !!(config.stream.live.ts[type] as any)[mode].useSubtitleUnrecognizerCmd,
         };
     }
 
@@ -214,7 +234,6 @@ export default class StreamApiModel implements IStreamApiModel {
                 cmd: conf.cmd,
             },
             option.mode,
-            conf.useSubtitleUnrecognizerCmd,
         );
 
         // manager に登録
@@ -243,7 +262,6 @@ export default class StreamApiModel implements IStreamApiModel {
                 cmd: conf.cmd,
             },
             option.mode,
-            conf.useSubtitleUnrecognizerCmd,
         );
 
         // manager に登録
@@ -272,7 +290,6 @@ export default class StreamApiModel implements IStreamApiModel {
                 cmd: conf.cmd,
             },
             option.mode,
-            conf.useSubtitleUnrecognizerCmd,
         );
 
         // manager に登録
@@ -298,7 +315,6 @@ export default class StreamApiModel implements IStreamApiModel {
         }
 
         let cmd: string;
-        let useSubtitleUnrecognizerCmd = false;
         if (isEncodedVideo === true) {
             if (
                 typeof config.stream.recorded.encoded === 'undefined' ||
@@ -319,8 +335,6 @@ export default class StreamApiModel implements IStreamApiModel {
             }
 
             cmd = (config.stream.recorded.ts[type] as any)[option.mode].cmd;
-            useSubtitleUnrecognizerCmd = !!(config.stream.recorded.ts[type] as any)[option.mode]
-                .useSubtitleUnrecognizerCmd;
         }
 
         if (typeof cmd === 'undefined') {
@@ -329,7 +343,6 @@ export default class StreamApiModel implements IStreamApiModel {
 
         return {
             cmd: cmd,
-            useSubtitleUnrecognizerCmd: useSubtitleUnrecognizerCmd,
         };
     }
 
@@ -436,6 +449,12 @@ export default class StreamApiModel implements IStreamApiModel {
                     if (program.extended !== null && program.halfWidthExtended !== null) {
                         item.extended = isHalfWidth === true ? program.halfWidthExtended : program.extended;
                     }
+                    if (program.rawExtended !== null && program.rawHalfWidthExtended !== null) {
+                        item.rawExtended =
+                            isHalfWidth === true
+                                ? JSON.parse(program.rawHalfWidthExtended)
+                                : JSON.parse(program.rawExtended);
+                    }
                 }
 
                 items.push(item);
@@ -463,11 +482,18 @@ export default class StreamApiModel implements IStreamApiModel {
                         item.name = recorded.name;
                         item.startAt = recorded.startAt;
                         item.endAt = recorded.endAt;
-                        if (recorded.description !== null) {
-                            item.description = recorded.description;
+                        if (recorded.description !== null && recorded.halfWidthDescription !== null) {
+                            item.description =
+                                isHalfWidth === true ? recorded.halfWidthDescription : recorded.description;
                         }
-                        if (recorded.extended !== null) {
-                            item.extended = recorded.extended;
+                        if (recorded.extended !== null && recorded.halfWidthExtended !== null) {
+                            item.extended = isHalfWidth === true ? recorded.halfWidthExtended : recorded.extended;
+                        }
+                        if (recorded.rawExtended !== null && recorded.rawHalfWidthExtended !== null) {
+                            item.rawExtended =
+                                isHalfWidth === true
+                                    ? JSON.parse(recorded.rawHalfWidthExtended)
+                                    : JSON.parse(recorded.rawExtended);
                         }
                     }
                 }

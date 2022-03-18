@@ -1,7 +1,6 @@
 import { ChildProcess, spawn } from 'child_process';
 import * as events from 'events';
 import { inject, injectable } from 'inversify';
-import * as path from 'path';
 import ProcessUtil from '../../../util/ProcessUtil';
 import IConfiguration from '../../IConfiguration';
 import ILogger from '../../ILogger';
@@ -33,12 +32,6 @@ class EncodeProcessManageModel implements IEncodeProcessManageModel {
      * @return Promise<ChildProcess>
      */
     public create(option: CreateProcessOption): Promise<ChildProcess> {
-        // replace %ROOT%
-        option.cmd =
-            process.platform === 'win32'
-                ? option.cmd.replace('%ROOT%', EncodeProcessManageModel.ROOT_PATH.replace(/\\/g, '\\\\'))
-                : option.cmd.replace('%ROOT%', EncodeProcessManageModel.ROOT_PATH);
-
         return new Promise<ChildProcess>(async (resolve, reject) => {
             if (this.childs.length >= this.maxEncode) {
                 // プロセス数が上限に達しているとき
@@ -50,7 +43,7 @@ class EncodeProcessManageModel implements IEncodeProcessManageModel {
                         try {
                             const child = await this.killAndCreateProcess(this.childs[i].processId, option);
                             resolve(child);
-                        } catch (err) {
+                        } catch (err: any) {
                             reject(err);
                         }
 
@@ -67,7 +60,7 @@ class EncodeProcessManageModel implements IEncodeProcessManageModel {
                     this.childs.unshift(child);
                     resolve(child.child);
                     this.log.encode.info(`create new encode process: ${child.processId}`);
-                } catch (err) {
+                } catch (err: any) {
                     this.log.encode.error('create encode process failed');
                     this.log.encode.error(err);
                     reject(err);
@@ -108,7 +101,7 @@ class EncodeProcessManageModel implements IEncodeProcessManageModel {
                         clearInterval(timeoutId); // timeout クリア
                     }
                     this.log.encode.info(`kill & create new encode process: ${child.processId}`);
-                } catch (err) {
+                } catch (err: any) {
                     this.log.encode.error('kill & create new encode process failed');
                     this.log.encode.error(err);
                     reject(err);
@@ -131,7 +124,7 @@ class EncodeProcessManageModel implements IEncodeProcessManageModel {
             // kill
             try {
                 await this.killChild(planToKillProcessId);
-            } catch (err) {
+            } catch (err: any) {
                 this.log.encode.error(`kill process failed: ${planToKillProcessId}`);
                 this.log.encode.error(err);
                 this.removeListener(createChild);
@@ -174,7 +167,7 @@ class EncodeProcessManageModel implements IEncodeProcessManageModel {
                         this.log.encode.info(`kill child: ${processId}`);
                         await ProcessUtil.kill(this.childs[i].child);
                     }
-                } catch (err) {
+                } catch (err: any) {
                     this.log.encode.error(err);
                 }
 
@@ -197,7 +190,7 @@ class EncodeProcessManageModel implements IEncodeProcessManageModel {
         let cmds: ProcessUtil.Cmds;
         try {
             cmds = ProcessUtil.parseCmdStr(option.cmd);
-        } catch (err) {
+        } catch (err: any) {
             this.log.encode.error(`build process error: ${option.cmd}`);
             throw err;
         }
@@ -242,6 +235,17 @@ class EncodeProcessManageModel implements IEncodeProcessManageModel {
             child.stderr.on('data', () => {});
         }
 
+        // プロセスが即時終了していた場合の対処
+        if (ProcessUtil.isExited(child) === true) {
+            setTimeout(async () => {
+                await this.killChild(processId, true).catch(err => {
+                    this.log.encode.error(err);
+                });
+                this.eventsNotify(processId);
+                child.removeAllListeners();
+            }, 50);
+        }
+
         return {
             child: child,
             priority: option.priority,
@@ -259,7 +263,6 @@ class EncodeProcessManageModel implements IEncodeProcessManageModel {
 }
 
 namespace EncodeProcessManageModel {
-    export const ROOT_PATH = path.join(__dirname, '..', '..', '..', '..');
     export const KILL_CHILD_EVENT = 'killChild';
 }
 

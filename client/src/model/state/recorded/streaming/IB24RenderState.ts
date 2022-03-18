@@ -1,7 +1,7 @@
-import Hls from 'hls-b24.js';
+import Hls from 'hls.js';
 
 export default interface IB24RenderState {
-    init(video: HTMLVideoElement, hls: Hls): void;
+    init(video: HTMLVideoElement, hls?: Hls): void;
     destroy(): void;
     isInited(): boolean;
     showSubtitle(): void;

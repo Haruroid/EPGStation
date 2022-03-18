@@ -116,9 +116,15 @@ import RecordedSelectStreamSettingStorageModel from './storage/recorded/Recorded
 import SendVideoFileSelectHostSettingStorageModel from './storage/recorded/SendVideoFileSelectHostSettingStorageModel';
 import { ISettingStorageModel } from './storage/setting/ISettingStorageModel';
 import SettingStorageModel from './storage/setting/SettingStorageModel';
+import { IVideoPlayerSettingModel } from './storage/video/IVideoPlayerSettingModel';
+import VideoPlayerSettingModel from './storage/video/VideoPlayerSettingModel';
 import StorageOperationModel from './storage/StorageOperationModel';
 import IColorThemeState from '@/model/state/IColorThemeState';
 import ColorThemeState from '@/model/state/ColorThemeState';
+import VersionState from '@/model/state/version/VersionState';
+import IVersionState from '@/model/state/version/IVersionState';
+import VersionApiModel from '@/model/api/version/VersionApiModel';
+import IVersionApiModel from '@/model/api/version/IVersionApiModel';
 
 /**
  * container に各 Model を登録する
@@ -152,6 +158,8 @@ export default (container: Container): void => {
 
     container.bind<IStorageApiModel>('IStorageApiModel').to(StorageApiModel).inSingletonScope();
 
+    container.bind<IVersionApiModel>('IVersionApiModel').to(VersionApiModel).inSingletonScope();
+
     container.bind<IThumbnailApiModel>('IThumbnailApiModel').to(ThumbnailApiModel).inSingletonScope();
 
     container.bind<IStorageOperationModel>('IStorageOperationModel').to(StorageOperationModel).inSingletonScope();
@@ -171,6 +179,8 @@ export default (container: Container): void => {
     container.bind<IRecordedSelectStreamSettingStorageModel>('IRecordedSelectStreamSettingStorageModel').to(RecordedSelectStreamSettingStorageModel).inSingletonScope();
 
     container.bind<ISendVideoFileSelectHostSettingStorageModel>('ISendVideoFileSelectHostSettingStorageModel').to(SendVideoFileSelectHostSettingStorageModel).inSingletonScope();
+
+    container.bind<IVideoPlayerSettingModel>('IVideoPlayerSettingModel').to(VideoPlayerSettingModel).inSingletonScope();
 
     container.bind<IServerConfigModel>('IServerConfigModel').to(ServerConfigModel).inSingletonScope();
 
@@ -241,6 +251,8 @@ export default (container: Container): void => {
     container.bind<IManualReserveState>('IManualReserveState').to(ManualReserveState).inSingletonScope();
 
     container.bind<IStorageState>('IStorageState').to(StorageState).inSingletonScope();
+
+    container.bind<IVersionState>('IVersionState').to(VersionState).inSingletonScope();
 
     container.bind<IColorThemeState>('IColorThemeState').to(ColorThemeState).inSingletonScope();
 };

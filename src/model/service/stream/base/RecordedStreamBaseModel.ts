@@ -2,7 +2,7 @@ import { ChildProcess, exec } from 'child_process';
 import * as fs from 'fs';
 import { inject, injectable } from 'inversify';
 import internal, { Readable } from 'stream';
-import UnrecognizeTransform from 'arib-subtitle-unrecognizer';
+import ID3MetadataTransform from 'arib-subtitle-timedmetadater';
 import * as apid from '../../../../../api';
 import * as fst from '../../../../lib/TailStream';
 import ProcessUtil from '../../../../util/ProcessUtil';
@@ -21,13 +21,14 @@ import StreamBaseModel from './StreamBaseModel';
 @injectable()
 export default abstract class RecordedStreamBaseModel
     extends StreamBaseModel<RecordedStreamOption>
-    implements IRecordedStreamBaseModel {
+    implements IRecordedStreamBaseModel
+{
     private videoFileDB: IVideoFileDB;
     private recordedDB: IRecordedDB;
     private videoUtil: IVideoUtil;
 
     private fileStream: Readable | null = null;
-    private unrecognizeTransform: UnrecognizeTransform | null = null;
+    private id3MetadataTransoform: ID3MetadataTransform | null = null;
     private streamProcess: ChildProcess | null = null;
     private videoFilePath: string | null = null;
     private videoFileInfo: VideoFileInfo | null = null;
@@ -83,7 +84,7 @@ export default abstract class RecordedStreamBaseModel
         // file read stream の生成
         try {
             this.setFileStream();
-        } catch (err) {
+        } catch (err: any) {
             this.log.stream.error('create file stream error');
             this.log.stream.error(err);
             await this.stop();
@@ -95,7 +96,7 @@ export default abstract class RecordedStreamBaseModel
         this.log.stream.info(`create encode process: ${poption.cmd}`);
         try {
             this.streamProcess = await this.processManager.create(poption);
-        } catch (err) {
+        } catch (err: any) {
             this.log.stream.error(`create encode process failed: ${poption.cmd}`);
             await this.stop();
         }
@@ -127,13 +128,21 @@ export default abstract class RecordedStreamBaseModel
 
         // パイプ処理
         if (this.streamProcess.stdin !== null && this.fileStream !== null) {
-            if (this.useSubtitleUnrecognizerCmd === true) {
-                this.unrecognizeTransform = new UnrecognizeTransform();
-                this.fileStream.pipe(this.unrecognizeTransform);
-                this.unrecognizeTransform.pipe(this.streamProcess.stdin);
+            // ts が入力かつ、HLS 配信の場合は arib-subtitle-timedmetadater を通す
+            if (this.videoFileType === 'ts' && this.getStreamType() === 'RecordedHLS') {
+                this.log.stream.info('use arib-subtitle-timedmetadater');
+                this.id3MetadataTransoform = new ID3MetadataTransform();
+                this.fileStream.pipe(this.id3MetadataTransoform);
+                this.id3MetadataTransoform.pipe(this.streamProcess.stdin);
             } else {
                 this.fileStream.pipe(this.streamProcess.stdin);
             }
+        }
+
+        // プロセスが即時終了していた場合
+        if (ProcessUtil.isExited(this.streamProcess) === true) {
+            this.streamProcess.removeAllListeners();
+            this.emitExitStream();
         }
     }
 
@@ -268,9 +277,9 @@ export default abstract class RecordedStreamBaseModel
             this.fileStream.destroy();
         }
 
-        if (this.unrecognizeTransform !== null) {
-            this.unrecognizeTransform.unpipe();
-            this.unrecognizeTransform.destroy();
+        if (this.id3MetadataTransoform !== null) {
+            this.id3MetadataTransoform.unpipe();
+            this.id3MetadataTransoform.destroy();
         }
 
         if (this.streamProcess !== null) {

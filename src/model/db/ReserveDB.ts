@@ -10,6 +10,7 @@ import IReserveDB, {
     IFindTimeRangesOption,
     IFindTimeSpecificationOption,
     IGetManualIdsOption,
+    IReserveTimeOption,
     RuleIdCountResult,
 } from './IReserveDB';
 
@@ -46,7 +47,7 @@ export default class ReserveDB implements IReserveDB {
                 await queryRunner.manager.insert(Reserve, item);
             }
             await queryRunner.commitTransaction();
-        } catch (err) {
+        } catch (err: any) {
             console.error(err);
             hasError = err;
             await queryRunner.rollbackTransaction();
@@ -129,7 +130,7 @@ export default class ReserveDB implements IReserveDB {
             }
 
             await queryRunner.commitTransaction();
-        } catch (err) {
+        } catch (err: any) {
             console.error(err);
             hasError = true;
             await queryRunner.rollbackTransaction();
@@ -280,9 +281,29 @@ export default class ReserveDB implements IReserveDB {
         let queryBuilder = await connection.getRepository(Reserve).createQueryBuilder('reserve');
 
         // option.times の重複を削除
-        option.times = option.times.filter((time, i) => {
-            return option.times.indexOf(time) === i;
-        });
+        const newTimes: IReserveTimeOption[] = [];
+        const timeIndex: { [key: string]: boolean } = {};
+        for (const time of option.times) {
+            const key = time.startAt.toString() + time.endAt.toString();
+            if (typeof timeIndex[key] === 'undefined') {
+                timeIndex[key] = true;
+                newTimes.push(time);
+            }
+        }
+        option.times = newTimes;
+
+        // option.times の連続した時間を一つにまとめる
+        option.times = option.times.reduce((acc, cur, index) => {
+            if (index === 0) {
+                return acc;
+            }
+            if (acc[acc.length - 1].endAt === cur.startAt) {
+                acc[acc.length - 1].endAt = cur.endAt;
+            } else {
+                acc.push(cur);
+            }
+            return acc;
+        }, option.times.slice(0, 1));
 
         // times
         let timesQuery = '';
@@ -321,7 +342,7 @@ export default class ReserveDB implements IReserveDB {
 
         // 指定された ruleId の除外
         if (typeof option.excludeRuleId !== 'undefined') {
-            queryBuilder = queryBuilder.andWhere('reserve.ruleId <> :ruleId', {
+            queryBuilder = queryBuilder.andWhere('(reserve.ruleId <> :ruleId or reserve.ruleId is null)', {
                 ruleId: option.excludeRuleId,
             });
         }

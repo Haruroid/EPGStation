@@ -9,9 +9,9 @@ import ISocketIOModel from '@/model/socketio/ISocketIOModel';
 import IB24RenderState from '@/model/state/recorded/streaming/IB24RenderState';
 import IRecordedHLSStreamingVideoState from '@/model/state/recorded/streaming/IRecordedHLSStreamingVideoState';
 import ISnackbarState from '@/model/state/snackbar/ISnackbarState';
-import UaUtil from '@/util/UaUtil';
+import HLSUtil from '@/util/HLSUtil';
 import Util from '@/util/Util';
-import Hls from 'hls-b24.js';
+import Hls from 'hls.js';
 import { Component, Prop, Watch } from 'vue-property-decorator';
 import * as apid from '../../../../api';
 
@@ -165,7 +165,7 @@ export default class RecordedHLSStreamingVideo extends BaseVideo {
         }
 
         const videoSrc = `./streamfiles/stream${streamId}.m3u8`;
-        if (this.isSupportedHLSjs() === true) {
+        if (HLSUtil.isSupportedHLSjs() === false) {
             // hls.js 非対応
             this.setSrc(videoSrc);
             this.load();
@@ -182,6 +182,7 @@ export default class RecordedHLSStreamingVideo extends BaseVideo {
                     }
                     this.video.currentTime = 0;
                 });
+            this.b24RenderState.init(this.video);
         } else {
             // hls.js 対応
             this.hls = new Hls();
@@ -199,13 +200,8 @@ export default class RecordedHLSStreamingVideo extends BaseVideo {
                     }, 100);
                 }
             });
-
             this.b24RenderState.init(this.video, this.hls);
         }
-    }
-
-    private isSupportedHLSjs(): boolean {
-        return Hls.isSupported() === false || (UaUtil.isiOS() === true && UaUtil.isiPadOS() === false);
     }
 
     /**
@@ -300,7 +296,7 @@ export default class RecordedHLSStreamingVideo extends BaseVideo {
                 return;
             }
 
-            if (this.isSupportedHLSjs() === false) {
+            if (HLSUtil.isSupportedHLSjs() === true) {
                 this.video.currentTime = 0;
             }
             await Util.sleep(500);

@@ -15,9 +15,9 @@ export const get: Operation = async (req, res) => {
                 message: 'video file is not found',
             });
         } else {
-            api.responseFile(req, res, fileInfo.path, fileInfo.mime, (req.query.isDownload as any) as boolean);
+            api.responseFile(req, res, fileInfo.path, fileInfo.mime, req.query.isDownload as any as boolean);
         }
-    } catch (err) {
+    } catch (err: any) {
         api.responseServerError(res, err.message);
     }
 };
@@ -64,7 +64,7 @@ export const del: Operation = async (req, res) => {
     try {
         await videoFileApiModel.deleteVideoFile(parseInt(req.params.videoFileId, 10));
         api.responseJSON(res, 200, { code: 200 });
-    } catch (err) {
+    } catch (err: any) {
         api.responseServerError(res, err.message);
     }
 };

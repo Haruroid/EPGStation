@@ -12,13 +12,17 @@ export const get: Operation = async (req, res) => {
             startAt: parseInt(req.query.startAt as any, 10),
             endAt: parseInt(req.query.endAt as any, 10),
             isHalfWidth: req.query.isHalfWidth as any,
+            needsRawExtended: req.query.needsRawExtended as any,
             GR: req.query.GR as any,
             BS: req.query.BS as any,
             CS: req.query.CS as any,
             SKY: req.query.SKY as any,
         };
+        if (typeof req.query.isFree === 'boolean') {
+            option.isFree = req.query.isFree;
+        }
         api.responseJSON(res, 200, await scheduleApiModel.getSchedules(option));
-    } catch (err) {
+    } catch (err: any) {
         api.responseServerError(res, err.message);
     }
 };
@@ -36,6 +40,12 @@ get.apiDoc = {
         },
         {
             $ref: '#/components/parameters/IsHalfWidth',
+        },
+        {
+            $ref: '#/components/parameters/NeedsRawExtended',
+        },
+        {
+            $ref: '#/components/parameters/IsFreeProgram',
         },
         {
             $ref: '#/components/parameters/requiredGR',

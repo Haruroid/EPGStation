@@ -89,6 +89,14 @@ export default class ConfigApiModel implements IConfigApiModel {
 
                     if (typeof config.stream.live.ts.m2ts !== 'undefined') {
                         result.streamConfig.live.ts.m2ts = config.stream.live.ts.m2ts.map(c => {
+                            return {
+                                name: c.name,
+                                isUnconverted: typeof c.cmd === 'undefined',
+                            };
+                        });
+                    }
+                    if (typeof config.stream.live.ts.m2tsll !== 'undefined') {
+                        result.streamConfig.live.ts.m2tsll = config.stream.live.ts.m2tsll.map(c => {
                             return c.name;
                         });
                     }

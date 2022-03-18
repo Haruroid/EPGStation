@@ -1,5 +1,5 @@
 <template>
-    <v-content>
+    <v-main>
         <TitleBar title="設定"></TitleBar>
         <transition name="page">
             <div v-if="isShow" ref="appContent" class="app-content">
@@ -56,6 +56,13 @@
                                     <v-spacer></v-spacer>
                                     <v-switch v-model="storageModel.tmp.isOnAirTabListView" value></v-switch>
                                 </div>
+                                <div v-if="isSupportedMpegts" class="my-2 d-flex flex-row align-center">
+                                    <div>
+                                        <v-list-item-title class="subtitle-1">web での再生を優先する</v-list-item-title>
+                                    </div>
+                                    <v-spacer></v-spacer>
+                                    <v-switch v-model="storageModel.tmp.isPreferredPlayingLiveM2TSOnWeb" value></v-switch>
+                                </div>
                                 <div class="my-2 d-flex flex-column">
                                     <div class="d-flex">
                                         <div>
@@ -86,6 +93,21 @@
                                     </div>
                                     <v-spacer></v-spacer>
                                     <v-select :items="guideLengthItems" v-model="storageModel.tmp.guideLength" class="guide-time" :menu-props="{ auto: true }"></v-select>
+                                </div>
+                                <div class="my-2 d-flex flex-row align-center">
+                                    <div>
+                                        <v-list-item-title class="subtitle-1">ダークテーマの配色を無効化する</v-list-item-title>
+                                        <v-list-item-subtitle>ダークテーマ使用時でも通常時と同じ配色設定になります</v-list-item-subtitle>
+                                    </div>
+                                    <v-spacer></v-spacer>
+                                    <v-switch v-model="storageModel.tmp.isForceDisableDarkThemeForGuide" value :disabled="$vuetify.theme.dark === false"></v-switch>
+                                </div>
+                                <div class="my-2 d-flex flex-row align-center">
+                                    <div>
+                                        <v-list-item-title class="subtitle-1">無料放送だけ表示する</v-list-item-title>
+                                    </div>
+                                    <v-spacer></v-spacer>
+                                    <v-switch v-model="storageModel.tmp.isShowOnlyFreePrograms" value></v-switch>
                                 </div>
                                 <div class="my-2 d-flex flex-row align-center">
                                     <div>
@@ -162,10 +184,20 @@
                                 </div>
                                 <div class="my-2 d-flex flex-row align-center">
                                     <div>
-                                        <v-list-item-title class="subtitle-1">概要の代わりにドロップ情報を表示する</v-list-item-title>
+                                        <v-list-item-title class="subtitle-1">ドロップ情報を表示する</v-list-item-title>
+                                        <v-list-item-subtitle>概要の代わりにドロップとファイルサイズ情報を表示する</v-list-item-subtitle>
                                     </div>
                                     <v-spacer></v-spacer>
                                     <v-switch v-model="storageModel.tmp.isShowDropInfoInsteadOfDescription" value></v-switch>
+                                </div>
+
+                                <div class="my-2 d-flex flex-row align-center">
+                                    <div>
+                                        <v-list-item-title class="subtitle-1">削除時のチェックを入れるか</v-list-item-title>
+                                        <v-list-item-subtitle>有効にするとファイル削除のチェックが入れられた状態で録画削除ダイアログが開かれます</v-list-item-subtitle>
+                                    </div>
+                                    <v-spacer></v-spacer>
+                                    <v-switch v-model="storageModel.tmp.deleteRecordedDefaultValue" value></v-switch>
                                 </div>
                                 <div class="my-2 d-flex flex-row align-center">
                                     <div>
@@ -267,17 +299,18 @@
                             </v-list-item-content>
                         </v-list-item>
 
-                        <v-divider v-if="isShoweB24Render"></v-divider>
+                        <v-divider></v-divider>
 
-                        <v-list-item v-if="isShoweB24Render" three-line>
+                        <v-list-item three-line>
                             <v-list-item-content>
                                 <div class="title">ビデオプレーヤ</div>
                                 <div class="my-2 d-flex flex-row align-center">
                                     <div>
-                                        <v-list-item-title class="subtitle-1">HLS 配信時の字幕表示方法</v-list-item-title>
+                                        <v-list-item-title class="subtitle-1">字幕の縁取りを強制する</v-list-item-title>
+                                        <v-list-item-subtitle>aribb24.js 使用時に有効になります</v-list-item-subtitle>
                                     </div>
                                     <v-spacer></v-spacer>
-                                    <v-select :items="b24RenderTypeItens" v-model="storageModel.tmp.b24RenderType" class="b24-render-type" :menu-props="{ auto: true }"></v-select>
+                                    <v-switch v-model="storageModel.tmp.isForceEnableSubtitleStroke" value></v-switch>
                                 </div>
                             </v-list-item-content>
                         </v-list-item>
@@ -292,7 +325,7 @@
                 </v-container>
             </div>
         </transition>
-    </v-content>
+    </v-main>
 </template>
 
 <script lang="ts">
@@ -301,23 +334,16 @@ import container from '@/model/ModelContainer';
 import IScrollPositionState from '@/model/state/IScrollPositionState';
 import INavigationState from '@/model/state/navigation/INavigationState';
 import ISnackbarState from '@/model/state/snackbar/ISnackbarState';
-import { ISettingStorageModel, GuideViewMode, B24RenderType } from '@/model/storage/setting/ISettingStorageModel';
-import UaUtil from '@/util/UaUtil';
+import { ISettingStorageModel, GuideViewMode } from '@/model/storage/setting/ISettingStorageModel';
 import { Component, Vue, Watch } from 'vue-property-decorator';
-import Hls from 'hls-b24.js';
 import IColorThemeState from '@/model/state/IColorThemeState';
-import Util from '@/util/Util';
+import Mpegts from 'mpegts.js';
 
 Component.registerHooks(['beforeRouteUpdate', 'beforeRouteLeave']);
 
 interface GuideModeItem {
     text: string;
     value: GuideViewMode;
-}
-
-interface B24RenderTypeItem {
-    text: string;
-    value: B24RenderType;
 }
 
 interface SelectItem {
@@ -354,21 +380,6 @@ export default class Settings extends Vue {
         },
     ];
 
-    public readonly b24RenderTypeItens: B24RenderTypeItem[] = [
-        {
-            text: 'デフォルト',
-            value: 'default',
-        },
-        {
-            text: 'aribb24.js',
-            value: 'aribb24.js',
-        },
-        {
-            text: 'b24.js',
-            value: 'b24.js',
-        },
-    ];
-
     public guideLengthItems: SelectItem[] = [];
     public reservesLengthItems: SelectItem[] = [];
     public recordingLengthItems: SelectItem[] = [];
@@ -396,8 +407,8 @@ export default class Settings extends Vue {
         this.$vuetify.theme.dark = value;
     }
 
-    get isShoweB24Render(): boolean {
-        return Hls.isSupported() === true;
+    get isSupportedMpegts(): boolean {
+        return Mpegts.isSupported();
     }
 
     constructor() {
@@ -482,8 +493,6 @@ export default class Settings extends Vue {
     max-width: 100px
 .guide-time
     max-width: 70px
-.b24-render-type
-    max-width: 120px
 </style>
 
 <style lang="sass">

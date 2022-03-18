@@ -1,5 +1,5 @@
 <template>
-    <v-content>
+    <v-main>
         <EditTitleBar
             v-if="isEditMode === true"
             :title="selectedTitle"
@@ -17,9 +17,9 @@
             </template>
         </TitleBar>
         <transition name="page">
-            <div v-if="ruleState.getRules().length > 0" ref="appContent" class="app-content">
+            <div ref="appContent" class="app-content">
                 <v-container>
-                    <div v-bind:style="contentWrapStyle">
+                    <div v-if="ruleState.getRules().length > 0" v-bind:style="contentWrapStyle">
                         <RuleItems :rules="ruleState.getRules()" :isEditMode.sync="isEditMode" v-on:selected="selectItem"></RuleItems>
                         <Pagination :total="ruleState.getTotal()" :pageSize="settingValue.rulesLength"></Pagination>
                     </div>
@@ -35,7 +35,7 @@
             :total="ruleState.getSelectedCnt()"
             v-on:delete="onExecuteMultiplueDeletion"
         ></RuleMultipleDeletionDialog>
-    </v-content>
+    </v-main>
 </template>
 
 <script lang="ts">

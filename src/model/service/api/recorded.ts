@@ -9,7 +9,7 @@ export const get: Operation = async (req, res) => {
 
     try {
         const option: GetRecordedOption = {
-            isHalfWidth: (req.query.isHalfWidth as any) as boolean,
+            isHalfWidth: req.query.isHalfWidth as any as boolean,
         };
         if (typeof req.query.offset !== 'undefined') {
             option.offset = parseInt(req.query.offset as any, 10);
@@ -37,7 +37,7 @@ export const get: Operation = async (req, res) => {
         }
 
         api.responseJSON(res, 200, await recordedApiModel.gets(option));
-    } catch (err) {
+    } catch (err: any) {
         api.responseServerError(res, err.message);
     }
 };
@@ -106,7 +106,7 @@ export const post: Operation = async (req, res) => {
         api.responseJSON(res, 201, {
             recordedId: await recordedApiModel.createNewRecorded(req.body),
         });
-    } catch (err) {
+    } catch (err: any) {
         api.responseServerError(res, err.message);
     }
 };

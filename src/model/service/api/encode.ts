@@ -7,8 +7,8 @@ export const get: Operation = async (req, res) => {
     const encodeApiModel = container.get<IEncodeApiModel>('IEncodeApiModel');
 
     try {
-        api.responseJSON(res, 200, await encodeApiModel.getAll((req.query.isHalfWidth as any) as boolean));
-    } catch (err) {
+        api.responseJSON(res, 200, await encodeApiModel.getAll(req.query.isHalfWidth as any as boolean));
+    } catch (err: any) {
         api.responseServerError(res, err.message);
     }
 };
@@ -53,7 +53,7 @@ export const post: Operation = async (req, res) => {
         api.responseJSON(res, 201, {
             encodeId: await encodeApiModel.add(req.body),
         });
-    } catch (err) {
+    } catch (err: any) {
         api.responseServerError(res, err.message);
     }
 };

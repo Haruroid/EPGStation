@@ -173,6 +173,20 @@
                     v-on:ratechange="onChangePlaybackRate"
                     v-on:volumechange="onVolumechange"
                 ></RecordedHLSStreamingVideo>
+                <LiveMpegTsVideo
+                    v-if="videoParam.type == 'LiveMpegTs'"
+                    ref="video"
+                    v-bind:videoSrc.sync="videoParam.src"
+                    v-on:timeupdate="onTimeupdate"
+                    v-on:waiting="onWaiting"
+                    v-on:loadeddata="onLoadeddata"
+                    v-on:canplay="onCanplay"
+                    v-on:ended="onEnded"
+                    v-on:play="onPlay"
+                    v-on:pause="onPause"
+                    v-on:ratechange="onChangePlaybackRate"
+                    v-on:volumechange="onVolumechange"
+                ></LiveMpegTsVideo>
             </div>
         </div>
     </div>
@@ -184,10 +198,13 @@ import LiveHLSVideo from '@/components/video/LiveHLSVideo.vue';
 import NormalVideo from '@/components/video/NormalVideo.vue';
 import RecordedHLSStreamingVideo from '@/components/video/RecordedHLSStreamingVideo.vue';
 import RecordedStreamingVideo from '@/components/video/RecordedStreamingVideo.vue';
+import LiveMpegTsVideo from '@/components/video/LiveMpegTsVideo.vue';
 import * as VideoParam from '@/components/video/ViedoParam';
+import container from '@/model/ModelContainer';
 import UaUtil from '@/util/UaUtil';
 import Util from '@/util/Util';
 import { Component, Prop, Vue, Watch } from 'vue-property-decorator';
+import { IVideoPlayerSettingModel } from '@/model/storage/video/IVideoPlayerSettingModel';
 
 interface SpeedItem {
     text: string;
@@ -200,6 +217,7 @@ interface SpeedItem {
         LiveHLSVideo,
         RecordedStreamingVideo,
         RecordedHLSStreamingVideo,
+        LiveMpegTsVideo,
     },
 })
 export default class VideoContainer extends Vue {
@@ -224,10 +242,13 @@ export default class VideoContainer extends Vue {
     public durationStr: string = '--:--';
     public playbackRate: number = 1.0;
 
-    // 字幕状態
+    // 字幕状態 (表示用)
     public isEnabledSubtitles: boolean = false;
     public isShowingSubtitle: boolean = false;
+
     public isiPad: boolean = UaUtil.isiPadOS();
+
+    private videoSetting: IVideoPlayerSettingModel = container.get<IVideoPlayerSettingModel>('IVideoPlayerSettingModel');
 
     private isFirstPlay: boolean = true;
     private isEnabledRotation: boolean = typeof window.screen.orientation !== 'undefined' && UaUtil.isMobile();
@@ -242,6 +263,10 @@ export default class VideoContainer extends Vue {
     // seek 時に使用する一時変数
     private needsReplay: boolean | null = null;
     private lastSeekedTime: number = 0; // 最後に slider を seek した時刻
+
+    // 内部字幕状態
+    // eslint-disable-next-line no-undef
+    private internalSubtitleState: TextTrackMode = 'disabled';
 
     public created(): void {
         document.addEventListener('keydown', this.keyDwonListener, false);
@@ -444,6 +469,7 @@ export default class VideoContainer extends Vue {
     // 読み込み完了
     public onLoadeddata(): void {
         this.isLoading = false;
+        this.forceUpdateSubtitle();
         this.updateSubtitleState();
     }
 
@@ -460,6 +486,14 @@ export default class VideoContainer extends Vue {
             if (this.isFirstPlay === true && typeof this.$refs.video !== 'undefined' && (this.$refs.video as BaseVideo).paused() === false) {
                 this.isShowControl = false;
                 this.isHideCursor = true;
+
+                // 字幕の初期表示状態と内部状態を合わせる
+                const isShowingSubtitle = this.internalSubtitleState === 'showing';
+                const subtitleConfig = this.videoSetting.getSavedValue().isShowSubtitle;
+                if (subtitleConfig !== isShowingSubtitle) {
+                    this.internalSubtitleState = subtitleConfig === true ? 'showing' : 'disabled';
+                    this.forceUpdateSubtitle();
+                }
             }
             this.isFirstPlay = false;
         }, 300);
@@ -512,6 +546,9 @@ export default class VideoContainer extends Vue {
         this.updateLastSeekTime();
         (this.$refs.video as BaseVideo).setCurrentTime(time);
 
+        // 内部の字幕表示状態と実際の状態を強制的に合わせる
+        this.forceUpdateSubtitle();
+
         // シーク前に再生中であれば再開
         await Util.sleep(200);
         if (this.needsReplay === true) {
@@ -520,6 +557,25 @@ export default class VideoContainer extends Vue {
             });
         }
         this.needsReplay = null;
+    }
+
+    /**
+     * 強制的に実際の字幕の状態を内部の字幕状態に合わせる
+     */
+    private forceUpdateSubtitle(): void {
+        if (typeof this.$refs.video === 'undefined') {
+            return;
+        }
+
+        try {
+            if (this.internalSubtitleState === 'showing') {
+                (this.$refs.video as BaseVideo).showSubtitle();
+            } else {
+                (this.$refs.video as BaseVideo).disabledSubtitle();
+            }
+        } catch (err) {
+            console.error(err);
+        }
     }
 
     // 再生位置更新時に呼ばれる
@@ -705,11 +761,16 @@ export default class VideoContainer extends Vue {
 
         if ((this.$refs.video as BaseVideo).isShowingSubtitle() === true) {
             // 非表示
+            this.internalSubtitleState = 'disabled';
             (this.$refs.video as BaseVideo).disabledSubtitle();
         } else {
             // 表示
+            this.internalSubtitleState = 'showing';
             (this.$refs.video as BaseVideo).showSubtitle();
         }
+
+        this.videoSetting.tmp.isShowSubtitle = this.internalSubtitleState === 'showing';
+        this.videoSetting.save();
 
         this.updateSubtitleState();
     }

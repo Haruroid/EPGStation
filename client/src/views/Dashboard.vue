@@ -1,6 +1,6 @@
 <template>
-    <v-content>
-        <TitleBar title="EPGStation"></TitleBar>
+    <v-main>
+        <TitleBar :title="versionState.getVersionString()"></TitleBar>
         <div class="app-content d-flex flex-column mx-auto">
             <transition name="page">
                 <div v-if="isShow" class="dashboard" v-bind:class="dashboardClass">
@@ -11,6 +11,7 @@
                                     <RecordedsmallCard
                                         :item="r"
                                         :isEditMode="false"
+                                        :isShowDropInfo="false"
                                         v-on:detail="gotoRecordedDetail"
                                         v-on:stopEncode="stopEncode"
                                         :noThumbnail="true"
@@ -40,7 +41,7 @@
                             </div>
                         </template>
                     </DashboardItem>
-                    <DashboardItem ref="reserveItem" :title="reserveTitle" v-on:scroll="onReserveScroll">
+                    <DashboardItem ref="reserveItem" :title="reserveTitle" :bage.sync="reserveConflictCnt" v-on:scroll="onReserveScroll" v-on:bage="gotoConflicts">
                         <template v-slot:items>
                             <div>
                                 <ReservesCard :reserves="reservesState.getReserves()" :flat="true" :isEditMode="false"></ReservesCard>
@@ -49,14 +50,11 @@
                                 </div>
                             </div>
                         </template>
-                        <template v-if="reserveConflictCnt > 0" v-slot:decoration>
-                            <v-badge bordered color="pink" :content="reserveConflictCnt" class="pl-1"></v-badge>
-                        </template>
                     </DashboardItem>
                 </div>
             </transition>
         </div>
-    </v-content>
+    </v-main>
 </template>
 
 <script lang="ts">
@@ -72,9 +70,11 @@ import IRecordedState from '@/model/state/recorded/IRecordedState';
 import IRecordingState from '@/model/state/recording/IRecordingState';
 import IReservesState from '@/model/state/reserve/IReservesState';
 import ISnackbarState from '@/model/state/snackbar/ISnackbarState';
+import IVersionState from '@/model/state/version/IVersionState';
 import { ISettingStorageModel, ISettingValue } from '@/model/storage/setting/ISettingStorageModel';
 import UaUtil from '@/util/UaUtil';
 import Util from '@/util/Util';
+import ResizeObserver from 'resize-observer-polyfill';
 import { Component, Vue, Watch } from 'vue-property-decorator';
 import { Route } from 'vue-router';
 import * as apid from '../../../api';
@@ -95,7 +95,7 @@ Component.registerHooks(['beforeRouteUpdate', 'beforeRouteLeave']);
         RecordedsmallCard,
     },
 })
-export default class Main extends Vue {
+class Dashboard extends Vue {
     public isShow: boolean = false;
     public dashboardState: IDashboardState = container.get<IDashboardState>('IDashboardState');
     public recordedState: IRecordedState = container.get<IRecordedState>('IRecordedState');
@@ -107,6 +107,7 @@ export default class Main extends Vue {
     private scrollState: IScrollPositionState = container.get<IScrollPositionState>('IScrollPositionState');
     private snackbarState: ISnackbarState = container.get<ISnackbarState>('ISnackbarState');
     private socketIoModel: ISocketIOModel = container.get<ISocketIOModel>('ISocketIOModel');
+    private versionState: IVersionState = container.get<IVersionState>('IVersionState');
     private onUpdateStatusCallback = (async (): Promise<void> => {
         await this.dashboardState.fetchData();
         await this.recordingState.fetchData(this.createFetchRecordingDataOption());
@@ -116,6 +117,8 @@ export default class Main extends Vue {
     private recordingScroll: number = 0;
     private recordedScroll: number = 0;
     private reserveScroll: number = 0;
+
+    private resizeObserver: ResizeObserver | null = null;
 
     get recordingTitle(): string {
         return `録画中 ${this.recordingState.getRecorded().length}/${this.recordingState.getTotal()}`;
@@ -140,17 +143,63 @@ export default class Main extends Vue {
     }
 
     public created(): void {
-        if (UaUtil.isiOS() === true) {
-            // html の class に guide を追加
-            const element = document.getElementsByTagName('html')[0];
-            element.classList.add('fix-address-bar2');
-            element.style.overflow = 'auto';
-        }
-
         this.settingValue = this.setting.getSavedValue();
 
         // socket.io イベント
         this.socketIoModel.onUpdateState(this.onUpdateStatusCallback);
+    }
+
+    public mounted(): void {
+        if (UaUtil.isiOS() === false) {
+            return;
+        }
+
+        /**
+         * iOS, iPadOS 使用時に横示時にアドレスバーの位置を修正させる
+         */
+        if (this.needFixAddressBar() === true) {
+            this.addFixAddressBarClass();
+        }
+
+        // set resize observer
+        this.resizeObserver = new ResizeObserver(() => {
+            if (this.needFixAddressBar() === true) {
+                this.addFixAddressBarClass();
+            } else {
+                this.removeFixAddressBarClass();
+            }
+        });
+        if (this.resizeObserver !== null) {
+            this.resizeObserver.observe(this.$el);
+        }
+    }
+
+    /**
+     * アドレスバー修正が必要か
+     * @return boolean 必要なら true を返す
+     */
+    private needFixAddressBar(): boolean {
+        return this.$el.clientWidth >= Dashboard.MIN_MIDTH_OF_SIDE_BY_SIDE;
+    }
+
+    /**
+     * アドレスバーの修正
+     */
+    private addFixAddressBarClass(): void {
+        // html の class に guide を追加
+        const element = document.getElementsByTagName('html')[0];
+        element.classList.add('fix-address-bar2');
+        element.style.overflow = 'auto';
+    }
+
+    /**
+     * アドレスバーの修正を消去
+     */
+    private removeFixAddressBarClass(): void {
+        // html の class から guide を削除
+        const element = document.getElementsByTagName('html')[0];
+        element.classList.remove('fix-address-bar2');
+        element.style.overflow = '';
     }
 
     public beforeDestroy(): void {
@@ -160,10 +209,11 @@ export default class Main extends Vue {
         this.isShow = false;
 
         if (UaUtil.isiOS() === true) {
-            // html の class から guide を削除
-            const element = document.getElementsByTagName('html')[0];
-            element.classList.remove('fix-address-bar2');
-            element.style.overflow = '';
+            this.removeFixAddressBarClass();
+        }
+
+        if (this.resizeObserver !== null) {
+            this.resizeObserver.disconnect();
         }
     }
 
@@ -206,6 +256,19 @@ export default class Main extends Vue {
             path: path,
             query: {
                 page: '2',
+            },
+        });
+    }
+
+    /**
+     * 予約競合ページへ飛ぶ
+     */
+    public gotoConflicts(): void {
+        console.log('goto conflict');
+        Util.move(this.$router, {
+            path: '/reserves',
+            query: {
+                type: 'conflict',
             },
         });
     }
@@ -395,6 +458,12 @@ export default class Main extends Vue {
         };
     }
 }
+
+namespace Dashboard {
+    export const MIN_MIDTH_OF_SIDE_BY_SIDE = 1023;
+}
+
+export default Dashboard;
 </script>
 
 <style lang="sass" scoped>

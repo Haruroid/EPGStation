@@ -29,10 +29,11 @@
 3. 設定ファイルの作成
 
     ```bash
-    $ cp config/config.sample.yml config/config.yml
+    $ cp config/config.yml.template config/config.yml
     $ cp config/operatorLogConfig.sample.yml config/operatorLogConfig.yml
     $ cp config/epgUpdaterLogConfig.sample.yml config/epgUpdaterLogConfig.yml
     $ cp config/serviceLogConfig.sample.yml config/serviceLogConfig.yml
+    $ cp config/enc.js.template config/enc.js
     ```
 
 4. 設定ファイルの編集

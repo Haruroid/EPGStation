@@ -8,8 +8,8 @@ import container from '@/model/ModelContainer';
 import ILiveHLSVideoState from '@/model/state/onair/ILiveHLSVideoState';
 import IB24RenderState from '@/model/state/recorded/streaming/IB24RenderState';
 import ISnackbarState from '@/model/state/snackbar/ISnackbarState';
-import UaUtil from '@/util/UaUtil';
-import Hls from 'hls-b24.js';
+import HLSUtil from '@/util/HLSUtil';
+import Hls from 'hls.js';
 import { Component, Prop, Watch } from 'vue-property-decorator';
 import * as apid from '../../../../api';
 
@@ -78,10 +78,11 @@ export default class LiveHLSVideo extends BaseVideo {
         }
 
         const videoSrc = `./streamfiles/stream${streamId}.m3u8`;
-        if (Hls.isSupported() === false || (UaUtil.isiOS() === true && UaUtil.isiPadOS() === false)) {
+        if (HLSUtil.isSupportedHLSjs() === false) {
             // hls.js 非対応
             this.setSrc(videoSrc);
             this.load();
+            this.b24RenderState.init(this.video);
         } else {
             // hls.js 対応
             this.hls = new Hls();
@@ -92,7 +93,6 @@ export default class LiveHLSVideo extends BaseVideo {
                     await this.video.play().catch(err => {});
                 }
             });
-
             this.b24RenderState.init(this.video, this.hls);
         }
     }

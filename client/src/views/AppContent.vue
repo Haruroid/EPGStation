@@ -66,7 +66,7 @@ export default class AppContent extends Vue {
 
         // イベント設定
         io.on('disconnect', this.onDisconnect);
-        io.on('reconnect', this.onReconnect);
+        io.on('connect', this.onReconnect);
     }
 
     /**
@@ -87,6 +87,10 @@ export default class AppContent extends Vue {
      * socketIO 再接続時
      */
     private onReconnect(): void {
+        if (this.isDisconnected === false) {
+            return;
+        }
+
         this.isDisconnected = false;
 
         // reload

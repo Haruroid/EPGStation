@@ -1,7 +1,6 @@
 import IStorageBaseModel from '../IStorageBaseModel';
 
 export type GuideViewMode = 'sequential' | 'minimum' | 'all';
-export type B24RenderType = 'default' | 'aribb24.js' | 'b24.js';
 
 export interface ISettingValue {
     isEnablePWA: boolean;
@@ -9,9 +8,12 @@ export interface ISettingValue {
     isForceDarkTheme: boolean;
     isHalfWidthDisplayed: boolean;
     isOnAirTabListView: boolean;
+    isPreferredPlayingLiveM2TSOnWeb: boolean;
     onAirM2TSViewURLScheme: string | null;
     guideMode: GuideViewMode;
     guideLength: number;
+    isForceDisableDarkThemeForGuide: boolean;
+    isShowOnlyFreePrograms: boolean;
     isEnableDisplayForEachBroadcastWave: boolean;
     isIncludeChannelIdWhenSearching: boolean;
     isIncludeGenreWhenSearching: boolean;
@@ -21,6 +23,7 @@ export interface ISettingValue {
     isShowTableMode: boolean;
     isPreferredPlayingOnWeb: boolean;
     isShowDropInfoInsteadOfDescription: boolean;
+    deleteRecordedDefaultValue: boolean;
     shouldUseRecordedViewURLScheme: boolean;
     recordedViewURLScheme: string | null;
     shouldUseRecordedDownloadURLScheme: boolean;
@@ -32,7 +35,7 @@ export interface ISettingValue {
     isEnableEncodingSettingWhenCreateRule: boolean;
     isCheckDeleteOriginalAfterEncode: boolean;
     rulesLength: number;
-    b24RenderType: B24RenderType;
+    isForceEnableSubtitleStroke: boolean; // 字幕縁取りを強制するか
 }
 
 export type ISettingStorageModel = IStorageBaseModel<ISettingValue>;

@@ -14,13 +14,20 @@ import ILoggerModel from './ILoggerModel';
  */
 @injectable()
 class Configuration implements IConfiguration {
+    private templateConfig: IConfigFile | null = null;
     private config!: IConfigFile;
     private log: ILogger;
 
     constructor(@inject('ILoggerModel') logger: ILoggerModel) {
         this.log = logger.getLogger();
 
-        this.readConfig();
+        try {
+            this.templateConfig = this.readConfig(Configuration.CONFIG_TEMPLATE_FILE_PATH, true);
+        } catch (err: any) {
+            this.templateConfig = null;
+        }
+
+        this.config = this.readConfig(Configuration.CONFIG_FILE_PATH, false);
         this.log.system.info('config.yml read success');
 
         fs.watchFile(Configuration.CONFIG_FILE_PATH, async () => {
@@ -28,7 +35,7 @@ class Configuration implements IConfiguration {
             try {
                 const newConfig = <any>yaml.load(await fs.promises.readFile(Configuration.CONFIG_FILE_PATH, 'utf-8'));
                 this.config = this.formatConfig(newConfig);
-            } catch (err) {
+            } catch (err: any) {
                 this.log.system.error('read config error');
                 this.log.system.error(err);
             }
@@ -37,24 +44,42 @@ class Configuration implements IConfiguration {
 
     /**
      * read config
+     * @param configPath: ファイルパス
+     * @param isWarning エラーを warning でログに残すか
+     * @return IConfigFile
      */
-    private readConfig(): void {
+    private readConfig(configPath: string, isWarning: boolean): IConfigFile {
         let str: string = '';
         try {
-            str = fs.readFileSync(Configuration.CONFIG_FILE_PATH, 'utf-8');
-        } catch (e) {
+            str = fs.readFileSync(configPath, 'utf-8');
+        } catch (e: any) {
             if (e.code === 'ENOENT') {
-                this.log.system.fatal('config.yml is not found');
+                const errMsg = `${configPath} is not found`;
+                if (isWarning === true) {
+                    this.log.system.warn(errMsg);
+                } else {
+                    this.log.system.fatal(errMsg);
+                }
             } else {
-                this.log.system.fatal(e);
+                if (isWarning === true) {
+                    this.log.stream.warn(e);
+                } else {
+                    this.log.system.fatal(e);
+                }
             }
-            process.exit(1);
+
+            // warning 扱いの場合はエラーを throw する
+            if (isWarning === true) {
+                throw e;
+            } else {
+                process.exit(1);
+            }
         }
 
         // parse configFile
         const newConfig: IConfigFile = <any>yaml.load(str);
 
-        this.config = this.formatConfig(newConfig);
+        return this.formatConfig(newConfig);
     }
 
     /**
@@ -63,7 +88,7 @@ class Configuration implements IConfiguration {
      * @return IConfigFile
      */
     private formatConfig(newConfig: IConfigFile): IConfigFile {
-        this.setDefaultValues(newConfig);
+        this.setTemplateValues(newConfig);
 
         // http or https の設定が存在するかチェック
         if (
@@ -115,10 +140,56 @@ class Configuration implements IConfiguration {
      * config デフォルト値をセットする
      * @param config: IConfigFile
      */
-    private setDefaultValues(config: IConfigFile): void {
+    private setTemplateValues(config: IConfigFile): void {
         for (const key in Configuration.DEFAULT_VALUE) {
             if (typeof (<any>config)[key] === 'undefined') {
                 (<any>config)[key] = (<any>Configuration.DEFAULT_VALUE)[key];
+            }
+        }
+
+        // stream のデフォルト値設定
+        if (this.templateConfig !== null && typeof config.stream !== 'undefined') {
+            if (typeof config.stream.live !== 'undefined' && typeof config.stream.live.ts !== 'undefined') {
+                if (typeof config.stream.live.ts.m2ts === 'undefined') {
+                    config.stream.live.ts.m2ts = this.templateConfig.stream?.live?.ts?.m2ts;
+                }
+                if (typeof config.stream.live.ts.m2tsll === 'undefined') {
+                    config.stream.live.ts.m2tsll = this.templateConfig.stream?.live?.ts?.m2tsll;
+                }
+                if (typeof config.stream.live.ts.webm === 'undefined') {
+                    config.stream.live.ts.webm = this.templateConfig.stream?.live?.ts?.webm;
+                }
+                if (typeof config.stream.live.ts.mp4 === 'undefined') {
+                    config.stream.live.ts.mp4 = this.templateConfig.stream?.live?.ts?.mp4;
+                }
+                if (typeof config.stream.live.ts.hls === 'undefined') {
+                    config.stream.live.ts.hls = this.templateConfig.stream?.live?.ts?.hls;
+                }
+            }
+
+            if (typeof config.stream.recorded !== 'undefined') {
+                if (typeof config.stream.recorded.ts !== 'undefined') {
+                    if (typeof config.stream.recorded.ts.webm === 'undefined') {
+                        config.stream.recorded.ts.webm = this.templateConfig.stream?.recorded?.ts?.webm;
+                    }
+                    if (typeof config.stream.recorded.ts.mp4 === 'undefined') {
+                        config.stream.recorded.ts.mp4 = this.templateConfig.stream?.recorded?.ts?.mp4;
+                    }
+                    if (typeof config.stream.recorded.ts.hls === 'undefined') {
+                        config.stream.recorded.ts.hls = this.templateConfig.stream?.recorded?.ts?.hls;
+                    }
+                }
+                if (typeof config.stream.recorded.encoded !== 'undefined') {
+                    if (typeof config.stream.recorded.encoded.webm === 'undefined') {
+                        config.stream.recorded.encoded.webm = this.templateConfig.stream?.recorded?.encoded?.webm;
+                    }
+                    if (typeof config.stream.recorded.encoded.mp4 === 'undefined') {
+                        config.stream.recorded.encoded.mp4 = this.templateConfig.stream?.recorded?.encoded?.mp4;
+                    }
+                    if (typeof config.stream.recorded.encoded.hls === 'undefined') {
+                        config.stream.recorded.encoded.hls = this.templateConfig.stream?.recorded?.encoded?.hls;
+                    }
+                }
             }
         }
     }
@@ -141,12 +212,15 @@ class Configuration implements IConfiguration {
 
 namespace Configuration {
     export const CONFIG_FILE_PATH = path.join(__dirname, '..', '..', 'config', 'config.yml');
+    export const CONFIG_TEMPLATE_FILE_PATH = path.join(__dirname, '..', '..', 'config', 'config.yml.template');
     export const ROOT_PATH = path.join(__dirname, '..', '..').replace(new RegExp(`\\${path.sep}$`), '');
 
     export const DEFAULT_VALUE: IConfigFile = {
         mirakurunPath: 'http+unix://%2Fvar%2Frun%2Fmirakurun.sock/',
         apiServers: [],
+        isAllowAllCORS: false,
         dbtype: 'sqlite',
+        needToReplaceEnclosingCharacters: true,
         epgUpdateIntervalTime: 10,
         conflictPriority: 1,
         recPriority: 2,
